@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portafolio de Diseño 3D</title>
+    <style>
+        :root {
+            --primary: #00f3ff; /* Cyan Neon */
+            --secondary: #bc13fe; /* Purple Neon */
+            --bg-color: #050505; /* Deep Black */
+            --card-bg: #121212; /* Dark Gray */
+            --text-color: #e0e0e0;
+            --neon-glow: 0 0 10px var(--primary), 0 0 20px var(--primary);
+        }
+
+        body { 
+            font-family: 'Courier New', Courier, monospace; 
+            margin: 0; padding: 0; 
+            background-color: var(--bg-color); 
+            color: var(--text-color);
+            background-image: linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            animation: bgScroll 20s linear infinite;
+        }
+        
+        @keyframes bgScroll {
+            from { background-position: 0 0; }
+            to { background-position: 30px 30px; }
+        }
+
+        #bg-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            pointer-events: none;
+        }
+        
+        /* Navigation */
+        header { 
+            background-color: rgba(5, 5, 5, 0.9); 
+            border-bottom: 1px solid var(--secondary); 
+            padding: 1rem 0; 
+            position: sticky; 
+            top: 0; 
+            z-index: 1000; 
+            box-shadow: 0 0 15px rgba(188, 19, 254, 0.3); 
+            backdrop-filter: blur(5px);
+        }
+        nav { display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+        .logo { 
+            font-size: 1.5rem; 
+            font-weight: bold; 
+            color: var(--primary); 
+            text-shadow: 0 0 5px var(--primary);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        nav ul { list-style: none; display: flex; gap: 20px; margin: 0; padding: 0; }
+        nav a { color: #fff; text-decoration: none; font-weight: 500; transition: all 0.3s; text-transform: uppercase; font-size: 0.9rem; letter-spacing: 1px; }
+        nav a:hover { color: var(--primary); text-shadow: 0 0 8px var(--primary); }
+        
+        /* Sections */
+        section { padding: 80px 20px; max-width: 1200px; margin: 0 auto; }
+        
+        /* Hero */
+        #inicio { 
+            text-align: center; 
+            padding: 120px 20px; 
+            background: radial-gradient(circle at center, #1a1a1a 0%, #000000 100%); 
+            border: 1px solid var(--secondary); 
+            box-shadow: 0 0 20px rgba(188, 19, 254, 0.2), inset 0 0 50px rgba(0,0,0,0.8);
+            position: relative;
+            overflow: hidden;
+            clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);
+        }
+        #inicio::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: linear-gradient(45deg, transparent 49%, var(--primary) 50%, transparent 51%);
+            background-size: 10px 10px;
+            opacity: 0.1;
+            pointer-events: none;
+        }
+        #inicio h1 { 
+            font-size: 4rem; 
+            margin: 0 0 20px 0; 
+            color: #fff;
+            text-shadow: 2px 2px 0px var(--secondary), -2px -2px 0px var(--primary);
+            letter-spacing: 5px;
+            animation: glitch 3s infinite alternate;
+        }
+        
+        @keyframes glitch {
+            0% { text-shadow: 2px 2px 0px var(--secondary), -2px -2px 0px var(--primary); transform: skew(0deg); }
+            20% { text-shadow: 2px -2px 0px var(--secondary), -2px 2px 0px var(--primary); transform: skew(-1deg); }
+            40% { text-shadow: -2px 2px 0px var(--secondary), 2px -2px 0px var(--primary); transform: skew(0.5deg); }
+            60% { text-shadow: -2px -2px 0px var(--secondary), 2px 2px 0px var(--primary); transform: skew(-0.5deg); }
+            80% { text-shadow: 2px 2px 0px var(--secondary), -2px -2px 0px var(--primary); transform: skew(1deg); }
+            100% { text-shadow: 2px 2px 0px var(--secondary), -2px -2px 0px var(--primary); transform: skew(0deg); }
+        }
+        #inicio p { font-size: 1.5rem; opacity: 0.9; font-weight: 300; }
+
+        /* Projects */
+        .projects-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; margin-top: 40px; }
+        .project-card { 
+            background: var(--card-bg); 
+            border: 1px solid #333; 
+            border-radius: 5px; 
+            overflow: hidden; 
+            transition: all 0.3s ease; 
+            position: relative;
+        }
+        .project-card:hover { 
+            transform: translateY(-5px); 
+            border-color: var(--primary);
+            box-shadow: 0 0 15px rgba(0, 243, 255, 0.4);
+        }
+        .card-image { 
+            height: 200px; 
+            background-color: #000; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 4rem; 
+            border-bottom: 1px solid #333;
+            position: relative;
+        }
+        .card-image::after {
+            content: '';
+            position: absolute;
+            width: 100%; height: 100%;
+            background: linear-gradient(180deg, transparent 0%, rgba(0, 243, 255, 0.1) 100%);
+        }
+        .card-content { padding: 25px; color: var(--text-color); }
+        .card-content h3 { margin-top: 0; color: var(--primary); font-family: 'Segoe UI', sans-serif; text-transform: uppercase; letter-spacing: 1px; }
+        .btn { 
+            display: inline-block; 
+            padding: 10px 25px; 
+            background-color: transparent; 
+            color: var(--primary); 
+            text-decoration: none; 
+            border: 1px solid var(--primary);
+            margin-top: 15px; 
+            transition: all 0.3s; 
+            text-transform: uppercase;
+            font-weight: bold;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn:hover { 
+            background-color: var(--primary); 
+            color: #000; 
+            box-shadow: 0 0 20px var(--primary); 
+        }
+
+        /* Footer */
+        footer { 
+            background-color: #000; 
+            color: #666; 
+            text-align: center; 
+            padding: 30px; 
+            margin-top: 50px; 
+            border-top: 1px solid #333;
+            font-size: 0.8rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            nav { flex-direction: column; gap: 15px; }
+            #inicio h1 { font-size: 2.5rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="bg-canvas"></canvas>
+
+    <header>
+        <nav>
+            <div class="logo">Portafolio 3D</div>
+            <ul>
+                <li><a href="#inicio">Inicio</a></li>
+                <li><a href="#sobre-mi">Sobre mí</a></li>
+                <li><a href="#diseno-3d">Proyectos</a></li>
+                <li><a href="#contacto">Contacto</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <section id="inicio">
+        <h1>Bienvenido</h1>
+        <p>Portafolio de Programación Gráfica y Diseño 3D </p>
+    </section>
+
+    <section id="sobre-mi">
+        <h2>Sobre mí</h2>
+        <p>Estudiante de 8vo semestre, explorando las capacidades de WebGL y Three.js para crear experiencias interactivas en el navegador.
+            Mi enfoque está en el diseño de escenas 3D, animaciones y la integración de físicas para proyectos dinámicos y visualmente atractivos.</p>
+            <p>En este portafolio encontrarás una selección de mis prácticas y proyectos relacionados con el diseño 3D, desde modelos básicos hasta escenas complejas con interactividad avanzada.</p>
+            <p>Mi objetivo es seguir aprendiendo y mejorando mis habilidades en programación gráfica, creando experiencias cada vez más inmersivas y sorprendentes.</p>
+            <p>¡Gracias por visitar mi portafolio! Espero que disfrutes explorando mis proyectos tanto como yo disfruté creándolos.</p>
+        </p>
+    </section>
+
+    <section id="diseno-3d">
+        <h2>Diseño 3D - Prácticas</h2>
+        <div class="projects-grid">
+            <!-- Práctica 1 -->
+            <article class="project-card">
+                <div class="card-image" style="background: linear-gradient(to right, #a8ff78, #78ffd6);">🧊</div>
+                <div class="card-content">
+                    <h3>Cubo en 3D girando</h3>
+                    <p>Primera aproximación a Three.js. Escena básica con geometrías primitivas (cubo, esfera, cilindro) y animaciones de rotación simples.</p>
+                    <a href="cubo.html" class="btn" target="_blank">Ver Práctica</a>
+                </div>
+            </article>
+
+            <!-- Práctica 2 -->
+            <article class="project-card">
+                <div class="card-image" style="background: linear-gradient(to right, #ff9966, #ff5e62);">🪐</div>
+                <div class="card-content">
+                    <h3>OrbitControls y Texturas</h3>
+                    <p>Uso de controles de cámara orbitales, materiales avanzados y renderizado a texturas (Portales) con el Companion Cube.</p>
+                    <a href="orbit.html" class="btn" target="_blank">Ver Práctica</a>
+                </div>
+            </article>
+
+            <!-- Práctica 3 -->
+            <article class="project-card">
+                <div class="card-image" style="background: linear-gradient(to right, #f093fb, #f5576c);">🏗️</div>
+                <div class="card-content">
+                    <h3>Jenga 3D con Físicas</h3>
+                    <p>Simulación de física con Cannon.js. Interacción con mouse para mover bloques, colisiones realistas y sombras dinámicas.</p>
+                    <a href="A.html" class="btn" target="_blank">Ver Práctica</a>
+                </div>
+            </article>
+        </div>
+    </section>
+
+    <section id="contacto">
+        <h2>Contacto</h2>
+        <p>Puedes encontrar el código de estos proyectos en mi repositorio.</p>
+    </section>
+
+    <footer>
+        <p>&copy; 2024 Portafolio de Programación 3D</p>
+    </footer>
+
+    <script>
+        const canvas = document.getElementById('bg-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let particles = [];
+
+        function resize() {
+            width = canvas.width = window.innerWidth;
+            height = canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        class Particle {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.vx = (Math.random() - 0.5) * 1; // Velocidad
+                this.vy = (Math.random() - 0.5) * 1;
+                this.size = Math.random() * 2;
+            }
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                if (this.x < 0 || this.x > width) this.vx *= -1;
+                if (this.y < 0 || this.y > height) this.vy *= -1;
+            }
+            draw() {
+                ctx.fillStyle = 'rgba(0, 243, 255, 0.5)';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        for (let i = 0; i < 80; i++) particles.push(new Particle());
+
+        function animate() {
+            ctx.clearRect(0, 0, width, height);
+            particles.forEach((p, index) => {
+                p.update();
+                p.draw();
+                for (let j = index + 1; j < particles.length; j++) {
+                    const p2 = particles[j];
+                    const dx = p.x - p2.x;
+                    const dy = p.y - p2.y;
+                    const dist = Math.sqrt(dx*dx + dy*dy);
+                    if (dist < 100) {
+                        ctx.strokeStyle = `rgba(0, 243, 255, ${1 - dist/100})`;
+                        ctx.lineWidth = 0.5;
+                        ctx.beginPath();
+                        ctx.moveTo(p.x, p.y);
+                        ctx.lineTo(p2.x, p2.y);
+                        ctx.stroke();
+                    }
+                }
+            });
+            requestAnimationFrame(animate);
+        }
+        animate();
+    </script>
+</body>
+</html>
