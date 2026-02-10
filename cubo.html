@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Cubo, Triangulo y Circulo</title>
+		<style>
+			body { margin: 0; }
+		</style>
+	</head>
+	<body>
+		<script type="module">
+			import * as THREE from "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js";
+			const scene = new THREE.Scene();
+			const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
+
+			const renderer = new THREE.WebGLRenderer();
+			renderer.setSize( window.innerWidth, window.innerHeight );
+			document.body.appendChild( renderer.domElement );
+
+			const geometry = new THREE.BoxGeometry();
+			const material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+			const cube = new THREE.Mesh( geometry, material );
+			scene.add( cube );
+
+			const triangleGeometry = new THREE.CylinderGeometry( 0, 1, 2, 4 );
+			const triangleMaterial = new THREE.MeshBasicMaterial( { color: 0xff0000 } );
+			const triangle = new THREE.Mesh( triangleGeometry, triangleMaterial );
+			triangle.position.x = -3;
+			scene.add( triangle );
+
+			// Sphere
+			const circleGeometry = new THREE.SphereGeometry( 1, 32, 32 );
+			const circleMaterial = new THREE.MeshBasicMaterial( { color: 0x0000ff } );
+			const circle = new THREE.Mesh( circleGeometry, circleMaterial );
+			circle.position.x = 3;
+			scene.add( circle );
+
+			camera.position.z = 5;
+
+			function animate() {
+				requestAnimationFrame( animate );
+
+				cube.rotation.x += 0.01;
+				cube.rotation.y += 0.01;
+
+				triangle.rotation.x += 0.01;
+				triangle.rotation.y += 0.01;
+
+				circle.rotation.x += 0.01;
+				circle.rotation.y += 0.01;
+
+				renderer.render( scene, camera );
+			};
+
+			animate();
+		</script>
+	</body>
+</html>

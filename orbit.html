@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Portal Engine: Infinite Companion Cube</title>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+            "orbit": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/controls/OrbitControls.js"
+        }
+    }
+</script>
+
+<script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'orbit';
+
+    // --- ESCENA Y RENDERER ---
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+    camera.position.set(5, 2, 8);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    renderer.localClippingEnabled = true;
+    document.body.appendChild(renderer.domElement);
+
+    const orbit = new OrbitControls(camera, renderer.domElement);
+    orbit.enableDamping = true;
+
+    // --- ILUMINACIÓN ---
+    scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const light = new THREE.PointLight(0xffffff, 1.5);
+    light.position.set(5, 10, 5);
+    scene.add(light);
+
+    // --- MATERIALES DEL CUBO ---
+    const matGris = new THREE.MeshStandardMaterial({ color: 0x3a3a3a, metalness: 0.6, roughness: 0.5 });
+    const matMetal = new THREE.MeshStandardMaterial({ color: 0x999999, metalness: 0.9, roughness: 0.2 });
+    const matCorazon = new THREE.MeshStandardMaterial({ 
+        color: 0xff66aa, emissive: 0xff0066, emissiveIntensity: 2 
+    });
+
+    // --- FUNCIÓN PARA EL CUBO CON CORAZONES ---
+    function createCompanionCube() {
+        const group = new THREE.Group();
+        
+        // Cuerpo base
+        group.add(new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2), matGris));
+        
+        // Esquinas metálicas
+        const cornerGeom = new THREE.BoxGeometry(0.65, 0.65, 0.65);
+        const pos = 0.85;
+        [[-1,1,1],[1,1,1],[-1,-1,1],[1,-1,1],[-1,1,-1],[1,1,-1],[-1,-1,-1],[1,-1,-1]].forEach(p => {
+            const c = new THREE.Mesh(cornerGeom, matMetal);
+            c.position.set(p[0]*pos, p[1]*pos, p[2]*pos);
+            group.add(c);
+        });
+
+        // Corazones en las 6 caras
+        const createHeartShape = () => {
+            const s = new THREE.Shape();
+            s.moveTo(0, 0);
+            s.bezierCurveTo(0, 0.3, 0.5, 0.3, 0.5, 0);
+            s.bezierCurveTo(0.5, -0.3, 0, -0.5, 0, -0.7);
+            s.bezierCurveTo(0, -0.5, -0.5, -0.3, -0.5, 0);
+            s.bezierCurveTo(-0.5, 0.3, 0, 0.3, 0, 0);
+            return new THREE.ShapeGeometry(s);
+        };
+
+        const heartGeom = createHeartShape();
+        const circleGeom = new THREE.CylinderGeometry(0.6, 0.6, 0.1, 32);
+        const faces = [
+            {p:[0,0,1.05], r:[Math.PI/2,0,0]}, {p:[0,0,-1.05], r:[-Math.PI/2,0,0]},
+            {p:[1.05,0,0], r:[0,0,-Math.PI/2]}, {p:[-1.05,0,0], r:[0,0,Math.PI/2]},
+            {p:[0,1.05,0], r:[0,0,0]}, {p:[0,-1.05,0], r:[Math.PI,0,0]}
+        ];
+
+        faces.forEach(f => {
+            const circle = new THREE.Mesh(circleGeom, matMetal);
+            circle.position.set(...f.p);
+            circle.rotation.set(...f.r);
+            const heart = new THREE.Mesh(heartGeom, matCorazon);
+            heart.scale.set(0.8, 0.8, 0.8);
+            heart.position.y = 0.06;
+            heart.rotation.x = -Math.PI/2;
+            heart.rotation.z = Math.PI;
+            circle.add(heart);
+            group.add(circle);
+        });
+
+        return group;
+    }
+
+    const cube = createCompanionCube();
+    scene.add(cube);
+
+    // --- SISTEMA DE PORTALES ---
+    const portalZ = 7;
+    const bufferA = new THREE.WebGLRenderTarget(1024, 1024);
+    const bufferB = new THREE.WebGLRenderTarget(1024, 1024);
+    const portalCam = new THREE.PerspectiveCamera(75, 1, 0.1, 1000);
+
+    function createPortal(color) {
+        const group = new THREE.Group();
+        const viewPlane = new THREE.Mesh(new THREE.PlaneGeometry(4, 6), new THREE.MeshBasicMaterial());
+        const frame = new THREE.Mesh(new THREE.TorusGeometry(2.3, 0.1, 16, 100), new THREE.MeshBasicMaterial({ color: color }));
+        frame.scale.y = 1.35;
+        group.add(viewPlane, frame);
+        return { group, viewPlane };
+    }
+
+    const portalAzul = createPortal(0x00aaff);
+    portalAzul.group.position.z = -portalZ;
+    scene.add(portalAzul.group);
+
+    const portalNaranja = createPortal(0xffaa00);
+    portalNaranja.group.position.z = portalZ;
+    portalNaranja.group.rotation.y = Math.PI;
+    scene.add(portalNaranja.group);
+
+    // --- HABITACIÓN ---
+    const room = new THREE.Mesh(
+        new THREE.BoxGeometry(20, 10, 30),
+        new THREE.MeshStandardMaterial({ color: 0x151515, side: THREE.BackSide })
+    );
+    scene.add(room);
+
+    // --- ANIMACIÓN ---
+    let travel = portalZ;
+    const speed = 0.04;
+
+    function renderPortalView(thisPortal, otherPortal, buffer) {
+        // Magia de la cámara: Calculamos la posición relativa de la cámara real al portal de entrada
+        // y la aplicamos al portal de salida para crear la ilusión de continuidad.
+        const relativePos = thisPortal.group.worldToLocal(camera.position.clone());
+        relativePos.x *= -1; 
+        relativePos.z *= -1;
+        portalCam.position.copy(otherPortal.group.localToWorld(relativePos));
+
+        const relativeTarget = thisPortal.group.worldToLocal(orbit.target.clone());
+        relativeTarget.z *= -1;
+        portalCam.lookAt(otherPortal.group.localToWorld(relativeTarget));
+
+        thisPortal.viewPlane.visible = false;
+        renderer.setRenderTarget(buffer);
+        renderer.render(scene, portalCam);
+        thisPortal.viewPlane.material.map = buffer.texture;
+        thisPortal.viewPlane.visible = true;
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+
+        // Movimiento del cubo
+        travel -= speed;
+        if (travel < -portalZ) travel = portalZ;
+        
+        cube.position.z = travel;
+        cube.rotation.y += 0.01;
+        cube.rotation.x += 0.005;
+
+        // Renderizar las vistas de los portales
+        renderPortalView(portalAzul, portalNaranja, bufferA);
+        renderPortalView(portalNaranja, portalAzul, bufferB);
+
+        renderer.setRenderTarget(null);
+        orbit.update();
+        renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+</script>
+</body>
+</html>
