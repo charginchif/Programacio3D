@@ -185,12 +185,18 @@ function buildTable(envMap) {
     }
 }
 
-function crearTexturaTexto(numero, simbolo, nombre, peso) {
-    // ─── IMPROVEMENT #4: 2× resolution canvas for crisp anisotropic texture ──
+function crearTexturaTexto(numero, simbolo, nombre, peso, catColor) {
     const canvas = document.createElement('canvas');
     canvas.width = 512; canvas.height = 600;
     const ctx = canvas.getContext('2d');
 
+    // Solid category-color background so one material works for all faces
+    const r = (catColor >> 16) & 0xff;
+    const g = (catColor >> 8) & 0xff;
+    const b = catColor & 0xff;
+    ctx.fillStyle = `rgb(${r},${g},${b})`;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    // Darken overlay for text contrast
     ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -213,40 +219,26 @@ function crearTexturaTexto(numero, simbolo, nombre, peso) {
 }
 
 function crearCuboCristal(geometry, grupo, x, y, numero, simbolo, nombre, peso, envMap, periodo) {
-    const texturaCaraFrontal = crearTexturaTexto(numero, simbolo, nombre, peso);
-    // ─── IMPROVEMENT #4: Max anisotropy → sharp text at oblique angles ────────
-    texturaCaraFrontal.anisotropy = renderer.capabilities.getMaxAnisotropy();
-
     const category = categoryMap[numero] || 'unknown';
-    const color = new THREE.Color(categoryColors[category]);
+    const catColorHex = categoryColors[category];
+    const color = new THREE.Color(catColorHex);
 
-    // ─── IMPROVEMENT #2: Richer glass material ────────────────────────────────
-    const crystalMaterial = new THREE.MeshStandardMaterial({
-        color: color,
-        metalness: 0.15,
-        roughness: 0.15,
+    const textura = crearTexturaTexto(numero, simbolo, nombre, peso, catColorHex);
+    textura.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+    // Single material per cube = 1 draw call (not 6)
+    const material = new THREE.MeshStandardMaterial({
+        map: textura,
+        metalness: 0.1,
+        roughness: 0.2,
         envMap: envMap,
-        envMapIntensity: 0.4,
-        transparent: true,
-        opacity: 0.6,
+        envMapIntensity: 0.3,
         emissive: color,
         emissiveIntensity: 0.12,
     });
+    originalEmissiveIntensity.set(material, material.emissiveIntensity);
 
-    const frontMaterial = crystalMaterial.clone();
-    frontMaterial.map = texturaCaraFrontal;
-    frontMaterial.emissiveIntensity = 0.06;
-
-    const materials = [
-        crystalMaterial.clone(), crystalMaterial.clone(),
-        crystalMaterial.clone(), crystalMaterial.clone(),
-        frontMaterial,           crystalMaterial.clone()
-    ];
-
-    // Store original intensities for dim/restore animation
-    materials.forEach(mat => originalEmissiveIntensity.set(mat, mat.emissiveIntensity));
-
-    const cubo = new THREE.Mesh(geometry, materials);
+    const cubo = new THREE.Mesh(geometry, material);
     cubo.position.set(x, y, 0);
     cubo.userData = { numero, simbolo, nombre, category, periodo };
 
@@ -271,16 +263,14 @@ function getShellElectrons(atomicNumber) {
 function setTableDimmed(dimmed) {
     for (const cube of allCubes) {
         if (cube === selectedObject) continue;
-        cube.material.forEach(mat => {
-            const baseIntensity = originalEmissiveIntensity.get(mat) ?? 0.12;
-            new TWEEN.Tween({ ei: mat.emissiveIntensity, op: mat.opacity })
-                .to({ ei: dimmed ? 0.02 : baseIntensity, op: dimmed ? 0.12 : 0.6 }, 700)
-                .easing(TWEEN.Easing.Quadratic.Out)
-                .onUpdate(({ ei, op }) => { mat.emissiveIntensity = ei; mat.opacity = op; })
-                .start();
-        });
+        const mat = cube.material;
+        const baseIntensity = originalEmissiveIntensity.get(mat) ?? 0.12;
+        new TWEEN.Tween({ ei: mat.emissiveIntensity })
+            .to({ ei: dimmed ? 0.02 : baseIntensity }, 700)
+            .easing(TWEEN.Easing.Quadratic.Out)
+            .onUpdate(({ ei }) => { mat.emissiveIntensity = ei; })
+            .start();
     }
-    // Ramp bloom when selecting
     new TWEEN.Tween(bloomPass)
         .to({ strength: dimmed ? 0.9 : 0.3, threshold: dimmed ? 0.15 : 0.55 }, 800)
         .easing(TWEEN.Easing.Quadratic.Out)
@@ -338,7 +328,7 @@ function createAtomicModel(cubeMesh) {
     const nucleonCount = Math.min(numero, 20);
     const nucleonGeo = new THREE.SphereGeometry(nucleusRadius * 0.55, 16, 16);
 
-    const protonMat = new THREE.MeshPhysicalMaterial({
+    const protonMat = new THREE.MeshStandardMaterial({
         color: catColor,
         emissive: catColor,
         emissiveIntensity: 3.0,
@@ -583,18 +573,17 @@ function returnToGlobalView() {
 }
 
 function highlightObject(obj) {
-    if (!obj || !Array.isArray(obj.material)) return;
+    if (!obj || !obj.material) return;
     highlightedObject = obj;
-    obj.material.forEach(mat => mat.emissive.multiplyScalar(2.5));
+    obj.material.emissive.multiplyScalar(2.5);
 }
 
 function clearHighlight() {
-    if (!highlightedObject || !Array.isArray(highlightedObject.material)) return;
-    highlightedObject.material.forEach(mat => {
-        mat.emissive.copy(mat.color).multiplyScalar(
-            originalEmissiveIntensity.get(mat) ?? mat.emissiveIntensity
-        );
-    });
+    if (!highlightedObject || !highlightedObject.material) return;
+    const mat = highlightedObject.material;
+    mat.emissive.copy(mat.color || new THREE.Color(0x444444)).multiplyScalar(
+        originalEmissiveIntensity.get(mat) ?? mat.emissiveIntensity
+    );
     highlightedObject = null;
 }
 
@@ -681,22 +670,66 @@ function onVRSelect(event) {
         return;
     }
 
-    const intersects = vrRaycaster.intersectObjects(tableGroup.children);
-    if (intersects.length > 0) {
-        selectedObject = intersects[0].object;
-        originalObjectPosition.copy(selectedObject.position);
-        if (clickSound.buffer && !clickSound.isPlaying) clickSound.play();
-        clearHighlight();
-        setTableDimmed(true);
-        ejectObject(selectedObject);
+    // Recursive intersection through sceneContent > tableGroup > cubes
+    const intersects = vrRaycaster.intersectObjects(sceneContent.children, true);
+    for (const hit of intersects) {
+        if (allCubes.includes(hit.object)) {
+            selectedObject = hit.object;
+            originalObjectPosition.copy(selectedObject.position);
+            if (clickSound.buffer && !clickSound.isPlaying) clickSound.play();
+            clearHighlight();
+            setTableDimmed(true);
+            ejectObject(selectedObject);
+            break;
+        }
     }
 }
 
-// ─── RENDER LOOP (setAnimationLoop for WebXR compat) ────────────────────────
+// ─── JOYSTICK LOCOMOTION ─────────────────────────────────────────────────
+function handleVRLocomotion() {
+    const session = renderer.xr.getSession();
+    if (!session) return;
+
+    const speed = 0.02; // meters per frame
+    const rotSpeed = 0.02;
+
+    for (const source of session.inputSources) {
+        if (!source.gamepad) continue;
+        const axes = source.gamepad.axes;
+        // axes[2] = thumbstick X, axes[3] = thumbstick Y
+        const x = axes.length >= 4 ? axes[2] : 0;
+        const y = axes.length >= 4 ? axes[3] : 0;
+        const deadzone = 0.15;
+
+        if (source.handedness === 'left') {
+            // Left stick: forward/back and strafe
+            if (Math.abs(y) > deadzone) {
+                sceneContent.position.z += y * speed;
+            }
+            if (Math.abs(x) > deadzone) {
+                sceneContent.position.x -= x * speed;
+            }
+        } else if (source.handedness === 'right') {
+            // Right stick: rotate table and vertical move
+            if (Math.abs(x) > deadzone) {
+                sceneContent.rotation.y -= x * rotSpeed;
+            }
+            if (Math.abs(y) > deadzone) {
+                sceneContent.position.y -= y * speed;
+            }
+        }
+    }
+}
+
+// ─── RENDER LOOP ─────────────────────────────────────────────────────────
 function animate() {
     TWEEN.update();
-    // Only update OrbitControls when NOT in VR
-    if (!isInVR) controls.update();
+
+    if (isInVR) {
+        handleVRLocomotion();
+    } else {
+        controls.update();
+    }
 
     for (const { group, speed } of orbitGroups) {
         group.rotation.z += speed;
@@ -711,7 +744,6 @@ function animate() {
         });
     }
 
-    // EffectComposer doesn't support WebXR stereo
     if (renderer.xr.isPresenting) {
         renderer.render(scene, camera);
     } else {
