@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabla Periódica 3D - Entrega 2</title>
+    <style>
+        body { 
+            margin: 0; 
+            background-color: #050508; 
+            color: white; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            overflow: hidden; 
+        }
+        #container { width: 100vw; height: 100vh; }
+        
+        .elemento {
+            width: 120px;
+            height: 160px;
+            background-color: rgba(10, 30, 60, 0.4);
+            border: 2px solid rgba(127, 255, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.1);
+            text-align: center;
+            cursor: pointer;
+            border-radius: 8px;
+            backdrop-filter: blur(5px);
+            transition: all 0.3s ease;
+            /* Evita que el texto se seleccione al hacer doble clic */
+            user-select: none; 
+        }
+        
+        .elemento:hover {
+            background-color: rgba(10, 80, 120, 0.8);
+            border: 2px solid rgba(127, 255, 255, 1);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+            transform: scale(1.05);
+        }
+
+        .numero { position: absolute; top: 10px; right: 10px; font-size: 16px; color: rgba(127, 255, 255, 0.8); font-weight: bold;}
+        .simbolo { position: absolute; top: 45px; width: 100%; font-size: 50px; font-weight: bold; color: white; text-shadow: 0 0 10px rgba(255,255,255,0.5); }
+        .nombre { position: absolute; bottom: 15px; width: 100%; font-size: 13px; color: rgba(127, 255, 255, 0.8); letter-spacing: 1px; text-transform: uppercase;}
+        
+        /* Estilo del botón para regresar la cámara */
+        #btn-volver {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 24px;
+            background-color: rgba(10, 80, 120, 0.6);
+            border: 1px solid rgba(127, 255, 255, 0.8);
+            color: white;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            backdrop-filter: blur(5px);
+            display: none;
+            z-index: 100;
+            transition: 0.3s;
+        }
+        #btn-volver:hover {
+            background-color: rgba(10, 80, 120, 1);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.6);
+        }
+
+        /* ─── INFO PANEL ─── */
+        #info-panel {
+            position: absolute;
+            top: 50%; right: 30px;
+            transform: translateY(-50%) translateX(40px);
+            width: 320px;
+            max-height: 80vh;
+            overflow-y: auto;
+            background: rgba(8, 18, 38, 0.82);
+            border: 1px solid rgba(100, 220, 255, 0.35);
+            border-radius: 16px;
+            backdrop-filter: blur(18px);
+            box-shadow: 0 0 40px rgba(0, 180, 255, 0.12), inset 0 0 60px rgba(0, 180, 255, 0.04);
+            padding: 28px 24px;
+            z-index: 200;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease, transform 0.5s ease;
+            color: #e0f0ff;
+            font-family: 'Segoe UI', Tahoma, sans-serif;
+        }
+        #info-panel.visible {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateY(-50%) translateX(0);
+        }
+        #info-panel .ip-header {
+            display: flex; align-items: flex-end; gap: 14px;
+            margin-bottom: 18px; padding-bottom: 14px;
+            border-bottom: 1px solid rgba(100, 220, 255, 0.18);
+        }
+        #info-panel .ip-symbol {
+            font-size: 64px; font-weight: 800; line-height: 1;
+            color: #fff; text-shadow: 0 0 18px rgba(100, 220, 255, 0.5);
+        }
+        #info-panel .ip-number {
+            font-size: 22px; font-weight: 700; color: rgba(100, 220, 255, 0.85);
+            margin-bottom: 6px;
+        }
+        #info-panel .ip-name {
+            font-size: 22px; font-weight: 600; margin-bottom: 4px;
+        }
+        #info-panel .ip-category {
+            display: inline-block; padding: 3px 12px; border-radius: 20px;
+            font-size: 12px; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.8px; margin-bottom: 16px;
+        }
+        #info-panel .ip-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+            margin-bottom: 16px;
+        }
+        #info-panel .ip-stat {
+            background: rgba(100, 220, 255, 0.06);
+            border: 1px solid rgba(100, 220, 255, 0.1);
+            border-radius: 10px; padding: 10px 12px;
+        }
+        #info-panel .ip-stat-label {
+            font-size: 10px; text-transform: uppercase; letter-spacing: 0.8px;
+            color: rgba(100, 220, 255, 0.6); margin-bottom: 4px;
+        }
+        #info-panel .ip-stat-value {
+            font-size: 15px; font-weight: 600; color: #fff;
+        }
+        #info-panel .ip-section-title {
+            font-size: 11px; text-transform: uppercase; letter-spacing: 1px;
+            color: rgba(100, 220, 255, 0.55); margin: 14px 0 8px;
+        }
+        #info-panel .ip-uses {
+            font-size: 13px; line-height: 1.55; color: rgba(220, 240, 255, 0.8);
+        }
+        #info-panel::-webkit-scrollbar { width: 4px; }
+        #info-panel::-webkit-scrollbar-thumb { background: rgba(100,220,255,0.2); border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    
+    <button id="btn-volver">Volver a la vista general</button>
+    <div id="info-panel"></div>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+                "tween": "https://unpkg.com/@tweenjs/tween.js@23.1.1/dist/tween.esm.js"
+            }
+        }
+    </script>
+    <script type="module" src="/TablaPeriodica.js"></script>
+</body>
+</html>
