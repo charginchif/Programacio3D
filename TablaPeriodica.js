@@ -47,6 +47,7 @@ let controller1, controller2;
 let controllerGrip1, controllerGrip2;
 const tempMatrix = new THREE.Matrix4();
 let vrRaycaster = new THREE.Raycaster();
+const vrOriginalMaterials = new WeakMap();
 
 // --- INITIALIZATION ---
 init();
@@ -148,6 +149,36 @@ function init() {
     const lineMat = new THREE.LineBasicMaterial({ color: 0x00eeff, transparent: true, opacity: 0.6 });
     controller1.add(new THREE.Line(lineGeo.clone(), lineMat.clone()));
     controller2.add(new THREE.Line(lineGeo.clone(), lineMat.clone()));
+
+    // ─── VR SESSION: swap to lightweight materials ──────────────────────────
+    renderer.xr.addEventListener('sessionstart', () => {
+        for (const cube of allCubes) {
+            vrOriginalMaterials.set(cube, cube.material);
+            const vrMats = cube.material.map(mat => {
+                const m = new THREE.MeshStandardMaterial({
+                    color: mat.color.clone(),
+                    emissive: mat.emissive.clone(),
+                    emissiveIntensity: mat.emissiveIntensity,
+                    roughness: 0.25,
+                    metalness: 0.1,
+                    transparent: true,
+                    opacity: 0.85,
+                });
+                if (mat.map) m.map = mat.map;
+                return m;
+            });
+            cube.material = vrMats;
+        }
+    });
+    renderer.xr.addEventListener('sessionend', () => {
+        for (const cube of allCubes) {
+            const orig = vrOriginalMaterials.get(cube);
+            if (orig) {
+                cube.material.forEach(m => m.dispose());
+                cube.material = orig;
+            }
+        }
+    });
 }
 
 // --- SCENE BUILDING ---
