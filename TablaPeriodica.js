@@ -5,6 +5,8 @@ import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { VRButton } from 'three/addons/webxr/VRButton.js';
+import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 import * as TWEEN from 'tween';
 
 // --- DATABASE ---
@@ -36,13 +38,18 @@ let originalObjectPosition = new THREE.Vector3();
 let atomicModel = null;
 let orbitGroups = [];
 
-// All cube meshes for dimming effect (#5)
+// All cube meshes for dimming effect
 let allCubes = [];
 const originalEmissiveIntensity = new WeakMap();
 
+// VR controllers
+let controller1, controller2;
+let controllerGrip1, controllerGrip2;
+const tempMatrix = new THREE.Matrix4();
+let vrRaycaster = new THREE.Raycaster();
+
 // --- INITIALIZATION ---
 init();
-animate();
 
 function init() {
     scene = new THREE.Scene();
@@ -54,8 +61,13 @@ function init() {
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1;
+    renderer.xr.enabled = true;
     document.getElementById('container').innerHTML = "";
     document.getElementById('container').appendChild(renderer.domElement);
+
+    // VR Button
+    const vrBtn = VRButton.createButton(renderer);
+    document.body.appendChild(vrBtn);
 
     // ─── IMPROVEMENT #1: Bloom post-processing ────────────────────────────────
     composer = new EffectComposer(renderer);
@@ -108,6 +120,34 @@ function init() {
     renderer.domElement.addEventListener('mousemove', onMouseMove);
     renderer.domElement.addEventListener('click', onClick);
     document.getElementById('btn-volver').addEventListener('click', returnToGlobalView);
+
+    // ─── VR CONTROLLERS ─────────────────────────────────────────────────────
+    const controllerModelFactory = new XRControllerModelFactory();
+
+    controller1 = renderer.xr.getController(0);
+    controller1.addEventListener('selectstart', onVRSelect);
+    scene.add(controller1);
+
+    controller2 = renderer.xr.getController(1);
+    controller2.addEventListener('selectstart', onVRSelect);
+    scene.add(controller2);
+
+    controllerGrip1 = renderer.xr.getControllerGrip(0);
+    controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
+    scene.add(controllerGrip1);
+
+    controllerGrip2 = renderer.xr.getControllerGrip(1);
+    controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
+    scene.add(controllerGrip2);
+
+    // Visible ray lines
+    const lineGeo = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(0, 0, 0),
+        new THREE.Vector3(0, 0, -4)
+    ]);
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x00eeff, transparent: true, opacity: 0.6 });
+    controller1.add(new THREE.Line(lineGeo.clone(), lineMat.clone()));
+    controller2.add(new THREE.Line(lineGeo.clone(), lineMat.clone()));
 }
 
 // --- SCENE BUILDING ---
@@ -533,8 +573,32 @@ function onWindowResize() {
     composer.setSize(window.innerWidth, window.innerHeight);
 }
 
+// ─── VR SELECT HANDLER ──────────────────────────────────────────────────────
+function onVRSelect(event) {
+    if (!tableGroup) return;
+    const ctrl = event.target;
+    tempMatrix.identity().extractRotation(ctrl.matrixWorld);
+    vrRaycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
+    vrRaycaster.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+    if (selectedObject) {
+        returnToGlobalView();
+        return;
+    }
+
+    const intersects = vrRaycaster.intersectObjects(tableGroup.children);
+    if (intersects.length > 0) {
+        selectedObject = intersects[0].object;
+        originalObjectPosition.copy(selectedObject.position);
+        if (clickSound.buffer) clickSound.play();
+        clearHighlight();
+        setTableDimmed(true);
+        ejectObject(selectedObject);
+    }
+}
+
+// ─── RENDER LOOP (setAnimationLoop for WebXR compat) ────────────────────────
 function animate() {
-    requestAnimationFrame(animate);
     TWEEN.update();
     controls.update();
 
@@ -551,6 +615,11 @@ function animate() {
         });
     }
 
-    // ─── IMPROVEMENT #1: composer renders Bloom ───────────────────────────────
-    composer.render();
+    // EffectComposer doesn't support WebXR stereo, so render directly in VR
+    if (renderer.xr.isPresenting) {
+        renderer.render(scene, camera);
+    } else {
+        composer.render();
+    }
 }
+renderer.setAnimationLoop(animate);
