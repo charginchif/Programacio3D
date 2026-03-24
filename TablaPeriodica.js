@@ -57,7 +57,8 @@ init();
 function init() {
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
-    camera.position.set(0, -500, 2200);
+    camera.position.set(0, -500, 0);
+    camera.lookAt(0, 0, -2200);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -87,6 +88,8 @@ function init() {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
+    controls.target.set(0, 0, -2200);
+    originalControlsTarget.set(0, 0, -2200);
 
     // ─── IMPROVEMENT #3: Cold studio HDRI (white/neutral reflections) ─────────
     const rgbeLoader = new RGBELoader();
@@ -153,84 +156,44 @@ function init() {
     controller2.add(new THREE.Line(lineGeo.clone(), lineMat.clone()));
 
     // ─── VR SESSION LIFECYCLE ────────────────────────────────────────────────
-    // Save desktop transform for restore
-    const desktopTablePos = new THREE.Vector3();
-    const desktopTableScale = new THREE.Vector3(1, 1, 1);
-
     renderer.xr.addEventListener('sessionstart', () => {
         isInVR = true;
-        // Reset state if something was selected
         if (selectedObject) {
             removeAtomicModel();
             selectedObject.position.copy(originalObjectPosition);
             selectedObject = null;
         }
-
-        // Save desktop transform
-        desktopTablePos.copy(tableGroup.position);
-        desktopTableScale.copy(tableGroup.scale);
-
-        // Scale table to human scale and place in front of user
-        // Table spans roughly 18*130 = 2340 wide, 10*130 = 1300 tall
-        // Scale down so it fits in ~3m width → scale = 3/2340 ≈ 0.0013
-        const vrScale = 0.0015;
-        tableGroup.scale.setScalar(vrScale);
-        // Center table in front of user: x=0, y=1.3m (eye height), z=-2m
-        tableGroup.position.set(0, 1.3, -2);
-
-        // Swap to MeshBasicMaterial — zero lighting cost
+        // Swap to MeshBasicMaterial for VR performance
         for (const cube of allCubes) {
             vrOriginalMaterials.set(cube, cube.material);
-            // Find front material (the one with a map/texture)
             const frontMat = cube.material.find(m => m.map);
             const baseMat = cube.material[0];
             const catColor = baseMat.color.clone();
-
-            // Single basic material for all faces
             const vrMat = new THREE.MeshBasicMaterial({
-                color: catColor,
-                transparent: true,
-                opacity: 0.85,
+                color: catColor, transparent: true, opacity: 0.8,
             });
-            // Front face: show text texture
             const vrFrontMat = new THREE.MeshBasicMaterial({
                 map: frontMat ? frontMat.map : null,
-                color: catColor,
-                transparent: true,
-                opacity: 0.9,
+                color: catColor, transparent: true, opacity: 0.9,
             });
-            const vrMats = [vrMat, vrMat, vrMat, vrMat, vrFrontMat, vrMat];
-            originalEmissiveIntensity.set(vrMat, 0.12);
-            originalEmissiveIntensity.set(vrFrontMat, 0.06);
-            cube.material = vrMats;
+            cube.material = [vrMat, vrMat, vrMat, vrMat, vrFrontMat, vrMat];
         }
     });
 
     renderer.xr.addEventListener('sessionend', () => {
         isInVR = false;
         removeVRInfoSprite();
-        // Reset selection
         if (selectedObject) {
             removeAtomicModel();
             selectedObject.position.copy(originalObjectPosition);
             selectedObject = null;
         }
-        // Restore desktop transform
-        tableGroup.position.copy(desktopTablePos);
-        tableGroup.scale.copy(desktopTableScale);
-
-        // Restore desktop materials
         for (const cube of allCubes) {
             const orig = vrOriginalMaterials.get(cube);
             if (orig) {
-                // Dispose VR materials
-                const vrMats = cube.material;
                 const disposed = new Set();
-                vrMats.forEach(m => { if (!disposed.has(m)) { m.dispose(); disposed.add(m); }});
+                cube.material.forEach(m => { if (!disposed.has(m)) { m.dispose(); disposed.add(m); }});
                 cube.material = orig;
-                orig.forEach(mat => {
-                    originalEmissiveIntensity.set(mat, mat.emissiveIntensity);
-                });
             }
         }
         setTableDimmed(false);
@@ -242,6 +205,7 @@ function init() {
 // --- SCENE BUILDING ---
 function buildTable(envMap) {
     tableGroup = new THREE.Group();
+    tableGroup.position.set(0, 0, -2200);  // Table lives far from origin; VR user sees it ahead
     scene.add(tableGroup);
 
     const cubeWidth = 120, cubeHeight = 120, cubeDepth = 120;
@@ -295,16 +259,13 @@ function crearCuboCristal(geometry, grupo, x, y, numero, simbolo, nombre, peso, 
     // ─── IMPROVEMENT #2: Richer glass material ────────────────────────────────
     const crystalMaterial = new THREE.MeshPhysicalMaterial({
         color: color,
-        metalness: 0.08,         // Low = glass feel, not metallic
+        metalness: 0.08,
         roughness: 0.08,
         envMap: envMap,
         envMapIntensity: 0.5,
-        transmission: 1.0,       // Full transparency via PBR transmission
         transparent: true,
-        opacity: 1.0,
-        ior: 1.52,               // Real glass index of refraction
-        thickness: 120.0,        // Matches cube depth — enables interior caustic distortion
-        clearcoat: 1.0,          // Glossy topcoat layer
+        opacity: 0.55,
+        clearcoat: 1.0,
         clearcoatRoughness: 0.08,
         emissive: color,
         emissiveIntensity: 0.12,
@@ -592,28 +553,25 @@ function onClick(event) {
 }
 
 function ejectObject(object) {
-    if (isInVR) {
-        // In VR: move element forward relative to its position, no OrbitControls
-        const targetPos = object.position.clone();
-        targetPos.z += 200;
-        new TWEEN.Tween(object.position)
-            .to(targetPos, 1200)
-            .easing(TWEEN.Easing.Quadratic.InOut)
-            .onComplete(() => {
-                createAtomicModel(object);
-                createVRInfoSprite(object);
-            })
-            .start();
-    } else {
-        // Desktop: original behavior
-        const targetPos = new THREE.Vector3(0, 0, 800);
-        new TWEEN.Tween(object.position)
-            .to(targetPos, 1200)
-            .easing(TWEEN.Easing.Quadratic.InOut)
-            .onComplete(() => createAtomicModel(object))
-            .start();
+    const targetPos = new THREE.Vector3(
+        object.position.x,
+        object.position.y,
+        object.position.z + 800
+    );
+    new TWEEN.Tween(object.position)
+        .to(targetPos, 1200)
+        .easing(TWEEN.Easing.Quadratic.InOut)
+        .onComplete(() => {
+            createAtomicModel(object);
+            if (isInVR) createVRInfoSprite(object);
+        })
+        .start();
+
+    if (!isInVR) {
+        const worldTarget = new THREE.Vector3();
+        tableGroup.localToWorld(worldTarget.copy(targetPos));
         new TWEEN.Tween(controls.target)
-            .to(targetPos, 1200)
+            .to(worldTarget, 1200)
             .easing(TWEEN.Easing.Quadratic.InOut)
             .start();
         controls.minDistance = 200;
