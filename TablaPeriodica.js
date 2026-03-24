@@ -153,6 +153,10 @@ function init() {
     controller2.add(new THREE.Line(lineGeo.clone(), lineMat.clone()));
 
     // ─── VR SESSION LIFECYCLE ────────────────────────────────────────────────
+    // Save desktop transform for restore
+    const desktopTablePos = new THREE.Vector3();
+    const desktopTableScale = new THREE.Vector3(1, 1, 1);
+
     renderer.xr.addEventListener('sessionstart', () => {
         isInVR = true;
         // Reset state if something was selected
@@ -161,30 +165,49 @@ function init() {
             selectedObject.position.copy(originalObjectPosition);
             selectedObject = null;
         }
-        // Swap to lightweight materials for VR performance
+
+        // Save desktop transform
+        desktopTablePos.copy(tableGroup.position);
+        desktopTableScale.copy(tableGroup.scale);
+
+        // Scale table to human scale and place in front of user
+        // Table spans roughly 18*130 = 2340 wide, 10*130 = 1300 tall
+        // Scale down so it fits in ~3m width → scale = 3/2340 ≈ 0.0013
+        const vrScale = 0.0015;
+        tableGroup.scale.setScalar(vrScale);
+        // Center table in front of user: x=0, y=1.3m (eye height), z=-2m
+        tableGroup.position.set(0, 1.3, -2);
+
+        // Swap to MeshBasicMaterial — zero lighting cost
         for (const cube of allCubes) {
             vrOriginalMaterials.set(cube, cube.material);
-            const vrMats = cube.material.map(mat => {
-                const m = new THREE.MeshStandardMaterial({
-                    color: mat.color.clone(),
-                    emissive: mat.emissive.clone(),
-                    emissiveIntensity: mat.emissiveIntensity * 1.5,
-                    roughness: 0.3,
-                    metalness: 0.05,
-                    transparent: true,
-                    opacity: 0.9,
-                });
-                if (mat.map) m.map = mat.map;
-                originalEmissiveIntensity.set(m, m.emissiveIntensity);
-                return m;
+            // Find front material (the one with a map/texture)
+            const frontMat = cube.material.find(m => m.map);
+            const baseMat = cube.material[0];
+            const catColor = baseMat.color.clone();
+
+            // Single basic material for all faces
+            const vrMat = new THREE.MeshBasicMaterial({
+                color: catColor,
+                transparent: true,
+                opacity: 0.85,
             });
+            // Front face: show text texture
+            const vrFrontMat = new THREE.MeshBasicMaterial({
+                map: frontMat ? frontMat.map : null,
+                color: catColor,
+                transparent: true,
+                opacity: 0.9,
+            });
+            const vrMats = [vrMat, vrMat, vrMat, vrMat, vrFrontMat, vrMat];
+            originalEmissiveIntensity.set(vrMat, 0.12);
+            originalEmissiveIntensity.set(vrFrontMat, 0.06);
             cube.material = vrMats;
         }
     });
 
     renderer.xr.addEventListener('sessionend', () => {
         isInVR = false;
-        // Clean up VR info sprite
         removeVRInfoSprite();
         // Reset selection
         if (selectedObject) {
@@ -192,19 +215,24 @@ function init() {
             selectedObject.position.copy(originalObjectPosition);
             selectedObject = null;
         }
+        // Restore desktop transform
+        tableGroup.position.copy(desktopTablePos);
+        tableGroup.scale.copy(desktopTableScale);
+
         // Restore desktop materials
         for (const cube of allCubes) {
             const orig = vrOriginalMaterials.get(cube);
             if (orig) {
-                cube.material.forEach(m => m.dispose());
+                // Dispose VR materials
+                const vrMats = cube.material;
+                const disposed = new Set();
+                vrMats.forEach(m => { if (!disposed.has(m)) { m.dispose(); disposed.add(m); }});
                 cube.material = orig;
-                // Restore emissive map entries
                 orig.forEach(mat => {
                     originalEmissiveIntensity.set(mat, mat.emissiveIntensity);
                 });
             }
         }
-        // Restore dimming
         setTableDimmed(false);
         hideInfoPanel();
         document.getElementById('btn-volver').style.display = 'none';
@@ -567,7 +595,7 @@ function ejectObject(object) {
     if (isInVR) {
         // In VR: move element forward relative to its position, no OrbitControls
         const targetPos = object.position.clone();
-        targetPos.z += 800;
+        targetPos.z += 200;
         new TWEEN.Tween(object.position)
             .to(targetPos, 1200)
             .easing(TWEEN.Easing.Quadratic.InOut)
