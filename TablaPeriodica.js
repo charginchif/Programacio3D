@@ -6,7 +6,6 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { VRButton } from 'three/addons/webxr/VRButton.js';
-import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
 import * as TWEEN from 'tween';
 
 // --- DATABASE ---
@@ -28,7 +27,7 @@ const discoveryYear = {1:1766,2:1868,3:1817,4:1798,5:1808,6:'Antiguo',7:1772,8:1
 const elementUses = {1:'Combustible de cohetes, producción de amoníaco, celdas de combustible',2:'Globos, criotecnología, soldadura',3:'Baterías de ion-litio, medicamentos psiquiátricos',4:'Aleaciones aeroespaciales, ventanas de rayos X',5:'Fibra de vidrio, semiconductores',6:'Base de la vida orgánica, diamantes, fibra de carbono',7:'Fertilizantes, explosivos, atmósfera terrestre',8:'Respiración, combustión, producción de acero',9:'Pasta dental, teflón, refrigerantes',10:'Letreros luminosos, láseres',11:'Sal de mesa, iluminación urbana',12:'Aleaciones ligeras, fuegos artificiales',13:'Latas, aviones, cables eléctricos',14:'Chips electrónicos, paneles solares, vidrio',15:'Fertilizantes, fósforos, detergentes',16:'Vulcanización del caucho, ácido sulfúrico',17:'Purificación de agua, PVC, blanqueadores',18:'Soldadura, llenado de lámparas',19:'Fertilizantes, jabones',20:'Cemento, huesos, yeso',21:'Aleaciones de alta resistencia',22:'Implantes médicos, aviones, pigmentos',23:'Acero de herramientas, resortes',24:'Acero inoxidable, cromado',25:'Acero, pilas alcalinas',26:'Construcción, maquinaria, hemoglobina',27:'Imanes, aleaciones, medicina nuclear',28:'Monedas, acero inoxidable, baterías',29:'Cables eléctricos, plomería, electrónica',30:'Galvanización, baterías, protectores solares',31:'Semiconductores, LEDs, termómetros',32:'Fibra óptica, transistores, lentes',33:'Semiconductores, insecticidas, vidrio',34:'Electrónica, fotocopiadoras, vidrio',35:'Retardantes de fuego, fotografía, medicinas',36:'Iluminación fluorescente, fotografía',37:'Celdas fotoeléctricas, relojes atómicos',38:'Fuegos artificiales, imanes de ferrita',39:'Láseres, superconductores',40:'Reactores nucleares, implantes dentales',41:'Aceros especiales, superconductores, joyería',42:'Aceros de alta resistencia, catalizadores',43:'Medicina nuclear (diagnóstico)',44:'Joyería, contactos eléctricos, catalizadores',45:'Catalizadores de autos, joyería',46:'Catalizadores, odontología, joyería',47:'Joyería, electrónica, fotografía, monedas',48:'Baterías recargables, pigmentos, aleaciones',49:'Pantallas táctiles, soldaduras, semiconductores',50:'Hojalata, soldaduras, aleaciones',51:'Retardantes de fuego, baterías, semiconductores',52:'Aleaciones, paneles solares, semiconductores',53:'Antisépticos, sal yodada, fotografía',54:'Motores iónicos, iluminación, anestesia',55:'Relojes atómicos, equipos de perforación',56:'Fuegos artificiales (verde), vidrio',57:'Óptica, baterías, catalizadores',58:'Convertidores catalíticos, vidrio, pulido',59:'Imanes de alta potencia, láseres',60:'Imanes potentes, láseres, vidrio coloreado',61:'Baterías nucleares, investigación',62:'Imanes, reactores nucleares',63:'Billetes de euro (seguridad), TV de color',64:'MRI (agente de contraste), reactores nucleares',65:'Pantallas, láseres, memorias',66:'Imanes de alto rendimiento, láseres',67:'Investigación nuclear, láseres',68:'Láseres, fibra óptica, metalurgia',69:'Rayos X portátiles, láseres',70:'Aceros inoxidables especiales',71:'PET scanners, catalizadores',72:'Reactores nucleares, aleaciones de alta temperatura',73:'Electrónica (capacitores), implantes quirúrgicos',74:'Filamentos, herramientas de corte, blindaje',75:'Contactos eléctricos, termopares, catalizadores',76:'Puntas de plumas, contactos eléctricos',77:'Bujías, crisoles, electrodos',78:'Catalizadores, joyería, equipos de laboratorio',79:'Joyería, electrónica, monedas, odontología',80:'Termómetros antiguos, amalgamas dentales',81:'Superconductores, electrónica',82:'Baterías, blindaje radiológico, soldaduras',83:'Cosméticos, medicamentos, fusibles',84:'Fuentes de calor nucleares (sondas espaciales)',85:'Investigación científica',86:'Tratamiento de cáncer (radioterapia)',87:'Investigación atómica',88:'Tratamiento de cáncer (histórico), pinturas luminosas',89:'Generadores de neutrones',90:'Reactores nucleares, lentes de cámara',91:'Investigación científica',92:'Energía nuclear, armamento, datación geológica',93:'Detectores de neutrones, naves espaciales',94:'Armas nucleares, marcapasos, sondas espaciales',95:'Detectores de humo, investigación',96:'Generadores termoeléctricos',97:'Investigación científica',98:'Tratamiento de cáncer',99:'Investigación científica',100:'Investigación científica',101:'Investigación científica',102:'Investigación científica',103:'Investigación científica',104:'Investigación',105:'Investigación',106:'Investigación',107:'Investigación',108:'Investigación',109:'Investigación',110:'Investigación',111:'Investigación',112:'Investigación',113:'Investigación',114:'Investigación',115:'Investigación',116:'Investigación',117:'Investigación',118:'Investigación'};
 
 // --- GLOBAL VARIABLES ---
-let scene, camera, renderer, controls, tableGroup;
+let scene, camera, renderer, controls, tableGroup, sceneContent;
 let composer, bloomPass;
 let raycaster, mouse, highlightedObject, selectedObject;
 let audioListener, clickSound;
@@ -38,16 +37,13 @@ let originalObjectPosition = new THREE.Vector3();
 let atomicModel = null;
 let orbitGroups = [];
 
-// All cube meshes for dimming effect
 let allCubes = [];
 const originalEmissiveIntensity = new WeakMap();
 
 // VR
 let controller1, controller2;
-let controllerGrip1, controllerGrip2;
 const tempMatrix = new THREE.Matrix4();
 let vrRaycaster = new THREE.Raycaster();
-const vrOriginalMaterials = new WeakMap();
 let isInVR = false;
 let vrInfoSprite = null;
 
@@ -56,9 +52,12 @@ init();
 
 function init() {
     scene = new THREE.Scene();
-    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 10000);
-    camera.position.set(0, -500, 0);
-    camera.lookAt(0, 0, -2200);
+    camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 10000);
+    camera.position.set(0, -500, 2200);
+
+    // Parent group for all scene content — transformed for VR
+    sceneContent = new THREE.Group();
+    scene.add(sceneContent);
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
@@ -66,21 +65,19 @@ function init() {
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1;
     renderer.xr.enabled = true;
+    renderer.xr.setReferenceSpaceType('local-floor');
     document.getElementById('container').innerHTML = "";
     document.getElementById('container').appendChild(renderer.domElement);
 
     // VR Button
-    const vrBtn = VRButton.createButton(renderer);
-    document.body.appendChild(vrBtn);
+    document.body.appendChild(VRButton.createButton(renderer));
 
-    // ─── IMPROVEMENT #1: Bloom post-processing ────────────────────────────────
+    // Bloom post-processing (desktop only)
     composer = new EffectComposer(renderer);
     composer.addPass(new RenderPass(scene, camera));
     bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
-        0.3,    // strength — low base for clear table
-        0.4,    // radius
-        0.55    // threshold — higher so table doesn't glow too much
+        0.3, 0.4, 0.55
     );
     composer.addPass(bloomPass);
     composer.addPass(new OutputPass());
@@ -88,22 +85,15 @@ function init() {
     controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
-    controls.target.set(0, 0, -2200);
-    originalControlsTarget.set(0, 0, -2200);
 
-    // ─── IMPROVEMENT #3: Cold studio HDRI (white/neutral reflections) ─────────
+    // HDRI environment
     const rgbeLoader = new RGBELoader();
     const loadHDRI = (url, fallbackUrl) => {
-        rgbeLoader.load(
-            url,
-            (texture) => {
-                texture.mapping = THREE.EquirectangularReflectionMapping;
-                scene.environment = texture;   // reflections only, no background
-                buildTable(texture);
-            },
-            undefined,
-            () => fallbackUrl && loadHDRI(fallbackUrl, null)
-        );
+        rgbeLoader.load(url, (texture) => {
+            texture.mapping = THREE.EquirectangularReflectionMapping;
+            scene.environment = texture;
+            buildTable(texture);
+        }, undefined, () => fallbackUrl && loadHDRI(fallbackUrl, null));
     };
     loadHDRI(
         'https://threejs.org/examples/textures/equirectangular/royal_esplanade_1k.hdr',
@@ -127,9 +117,7 @@ function init() {
     renderer.domElement.addEventListener('click', onClick);
     document.getElementById('btn-volver').addEventListener('click', returnToGlobalView);
 
-    // ─── VR CONTROLLERS ─────────────────────────────────────────────────────
-    const controllerModelFactory = new XRControllerModelFactory();
-
+    // ─── VR CONTROLLERS (simple — no model factory for Quest compatibility) ──
     controller1 = renderer.xr.getController(0);
     controller1.addEventListener('selectstart', onVRSelect);
     scene.add(controller1);
@@ -138,46 +126,28 @@ function init() {
     controller2.addEventListener('selectstart', onVRSelect);
     scene.add(controller2);
 
-    controllerGrip1 = renderer.xr.getControllerGrip(0);
-    controllerGrip1.add(controllerModelFactory.createControllerModel(controllerGrip1));
-    scene.add(controllerGrip1);
-
-    controllerGrip2 = renderer.xr.getControllerGrip(1);
-    controllerGrip2.add(controllerModelFactory.createControllerModel(controllerGrip2));
-    scene.add(controllerGrip2);
-
-    // Visible ray lines
-    const lineGeo = new THREE.BufferGeometry().setFromPoints([
+    // Visible ray beams
+    const rayGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0, -5000)
+        new THREE.Vector3(0, 0, -5)
     ]);
-    const lineMat = new THREE.LineBasicMaterial({ color: 0x00eeff, transparent: true, opacity: 0.35 });
-    controller1.add(new THREE.Line(lineGeo.clone(), lineMat.clone()));
-    controller2.add(new THREE.Line(lineGeo.clone(), lineMat.clone()));
+    const rayMat = new THREE.LineBasicMaterial({ color: 0x00eeff, transparent: true, opacity: 0.5 });
+    controller1.add(new THREE.Line(rayGeo.clone(), rayMat.clone()));
+    controller2.add(new THREE.Line(rayGeo.clone(), rayMat.clone()));
 
     // ─── VR SESSION LIFECYCLE ────────────────────────────────────────────────
     renderer.xr.addEventListener('sessionstart', () => {
         isInVR = true;
+        // Reset selection
         if (selectedObject) {
             removeAtomicModel();
+            removeVRInfoSprite();
             selectedObject.position.copy(originalObjectPosition);
             selectedObject = null;
         }
-        // Swap to MeshBasicMaterial for VR performance
-        for (const cube of allCubes) {
-            vrOriginalMaterials.set(cube, cube.material);
-            const frontMat = cube.material.find(m => m.map);
-            const baseMat = cube.material[0];
-            const catColor = baseMat.color.clone();
-            const vrMat = new THREE.MeshBasicMaterial({
-                color: catColor, transparent: true, opacity: 0.8,
-            });
-            const vrFrontMat = new THREE.MeshBasicMaterial({
-                map: frontMat ? frontMat.map : null,
-                color: catColor, transparent: true, opacity: 0.9,
-            });
-            cube.material = [vrMat, vrMat, vrMat, vrMat, vrFrontMat, vrMat];
-        }
+        // Scale scene to human size: table is ~2340 wide, we want ~3m → 0.0013
+        sceneContent.scale.setScalar(0.0013);
+        sceneContent.position.set(0, 1.3, -2.5);
     });
 
     renderer.xr.addEventListener('sessionend', () => {
@@ -188,14 +158,9 @@ function init() {
             selectedObject.position.copy(originalObjectPosition);
             selectedObject = null;
         }
-        for (const cube of allCubes) {
-            const orig = vrOriginalMaterials.get(cube);
-            if (orig) {
-                const disposed = new Set();
-                cube.material.forEach(m => { if (!disposed.has(m)) { m.dispose(); disposed.add(m); }});
-                cube.material = orig;
-            }
-        }
+        // Restore desktop scale
+        sceneContent.scale.setScalar(1);
+        sceneContent.position.set(0, 0, 0);
         setTableDimmed(false);
         hideInfoPanel();
         document.getElementById('btn-volver').style.display = 'none';
@@ -205,8 +170,7 @@ function init() {
 // --- SCENE BUILDING ---
 function buildTable(envMap) {
     tableGroup = new THREE.Group();
-    tableGroup.position.set(0, 0, -2200);  // Table lives far from origin; VR user sees it ahead
-    scene.add(tableGroup);
+    sceneContent.add(tableGroup);
 
     const cubeWidth = 120, cubeHeight = 120, cubeDepth = 120;
     const spacingX = 130, spacingY = 130;
@@ -257,16 +221,14 @@ function crearCuboCristal(geometry, grupo, x, y, numero, simbolo, nombre, peso, 
     const color = new THREE.Color(categoryColors[category]);
 
     // ─── IMPROVEMENT #2: Richer glass material ────────────────────────────────
-    const crystalMaterial = new THREE.MeshPhysicalMaterial({
+    const crystalMaterial = new THREE.MeshStandardMaterial({
         color: color,
-        metalness: 0.08,
-        roughness: 0.08,
+        metalness: 0.15,
+        roughness: 0.15,
         envMap: envMap,
-        envMapIntensity: 0.5,
+        envMapIntensity: 0.4,
         transparent: true,
-        opacity: 0.55,
-        clearcoat: 1.0,
-        clearcoatRoughness: 0.08,
+        opacity: 0.6,
         emissive: color,
         emissiveIntensity: 0.12,
     });
@@ -312,7 +274,7 @@ function setTableDimmed(dimmed) {
         cube.material.forEach(mat => {
             const baseIntensity = originalEmissiveIntensity.get(mat) ?? 0.12;
             new TWEEN.Tween({ ei: mat.emissiveIntensity, op: mat.opacity })
-                .to({ ei: dimmed ? 0.02 : baseIntensity, op: dimmed ? 0.12 : 1.0 }, 700)
+                .to({ ei: dimmed ? 0.02 : baseIntensity, op: dimmed ? 0.12 : 0.6 }, 700)
                 .easing(TWEEN.Easing.Quadratic.Out)
                 .onUpdate(({ ei, op }) => { mat.emissiveIntensity = ei; mat.opacity = op; })
                 .start();
@@ -556,7 +518,7 @@ function ejectObject(object) {
     const targetPos = new THREE.Vector3(
         object.position.x,
         object.position.y,
-        object.position.z + 800
+        object.position.z + 500
     );
     new TWEEN.Tween(object.position)
         .to(targetPos, 1200)
@@ -568,10 +530,8 @@ function ejectObject(object) {
         .start();
 
     if (!isInVR) {
-        const worldTarget = new THREE.Vector3();
-        tableGroup.localToWorld(worldTarget.copy(targetPos));
         new TWEEN.Tween(controls.target)
-            .to(worldTarget, 1200)
+            .to(targetPos, 1200)
             .easing(TWEEN.Easing.Quadratic.InOut)
             .start();
         controls.minDistance = 200;
