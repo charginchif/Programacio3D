@@ -42,12 +42,14 @@ let orbitGroups = [];
 let allCubes = [];
 const originalEmissiveIntensity = new WeakMap();
 
-// VR controllers
+// VR
 let controller1, controller2;
 let controllerGrip1, controllerGrip2;
 const tempMatrix = new THREE.Matrix4();
 let vrRaycaster = new THREE.Raycaster();
 const vrOriginalMaterials = new WeakMap();
+let isInVR = false;
+let vrInfoSprite = null;
 
 // --- INITIALIZATION ---
 init();
@@ -144,40 +146,68 @@ function init() {
     // Visible ray lines
     const lineGeo = new THREE.BufferGeometry().setFromPoints([
         new THREE.Vector3(0, 0, 0),
-        new THREE.Vector3(0, 0, -4)
+        new THREE.Vector3(0, 0, -5000)
     ]);
-    const lineMat = new THREE.LineBasicMaterial({ color: 0x00eeff, transparent: true, opacity: 0.6 });
+    const lineMat = new THREE.LineBasicMaterial({ color: 0x00eeff, transparent: true, opacity: 0.35 });
     controller1.add(new THREE.Line(lineGeo.clone(), lineMat.clone()));
     controller2.add(new THREE.Line(lineGeo.clone(), lineMat.clone()));
 
-    // ─── VR SESSION: swap to lightweight materials ──────────────────────────
+    // ─── VR SESSION LIFECYCLE ────────────────────────────────────────────────
     renderer.xr.addEventListener('sessionstart', () => {
+        isInVR = true;
+        // Reset state if something was selected
+        if (selectedObject) {
+            removeAtomicModel();
+            selectedObject.position.copy(originalObjectPosition);
+            selectedObject = null;
+        }
+        // Swap to lightweight materials for VR performance
         for (const cube of allCubes) {
             vrOriginalMaterials.set(cube, cube.material);
             const vrMats = cube.material.map(mat => {
                 const m = new THREE.MeshStandardMaterial({
                     color: mat.color.clone(),
                     emissive: mat.emissive.clone(),
-                    emissiveIntensity: mat.emissiveIntensity,
-                    roughness: 0.25,
-                    metalness: 0.1,
+                    emissiveIntensity: mat.emissiveIntensity * 1.5,
+                    roughness: 0.3,
+                    metalness: 0.05,
                     transparent: true,
-                    opacity: 0.85,
+                    opacity: 0.9,
                 });
                 if (mat.map) m.map = mat.map;
+                originalEmissiveIntensity.set(m, m.emissiveIntensity);
                 return m;
             });
             cube.material = vrMats;
         }
     });
+
     renderer.xr.addEventListener('sessionend', () => {
+        isInVR = false;
+        // Clean up VR info sprite
+        removeVRInfoSprite();
+        // Reset selection
+        if (selectedObject) {
+            removeAtomicModel();
+            selectedObject.position.copy(originalObjectPosition);
+            selectedObject = null;
+        }
+        // Restore desktop materials
         for (const cube of allCubes) {
             const orig = vrOriginalMaterials.get(cube);
             if (orig) {
                 cube.material.forEach(m => m.dispose());
                 cube.material = orig;
+                // Restore emissive map entries
+                orig.forEach(mat => {
+                    originalEmissiveIntensity.set(mat, mat.emissiveIntensity);
+                });
             }
         }
+        // Restore dimming
+        setTableDimmed(false);
+        hideInfoPanel();
+        document.getElementById('btn-volver').style.display = 'none';
     });
 }
 
@@ -534,25 +564,43 @@ function onClick(event) {
 }
 
 function ejectObject(object) {
-    const targetPos = new THREE.Vector3(0, 0, 800);
-    new TWEEN.Tween(object.position)
-        .to(targetPos, 1200)
-        .easing(TWEEN.Easing.Quadratic.InOut)
-        .onComplete(() => createAtomicModel(object))
-        .start();
-    new TWEEN.Tween(controls.target)
-        .to(targetPos, 1200)
-        .easing(TWEEN.Easing.Quadratic.InOut)
-        .start();
-    controls.minDistance = 200;
-    controls.maxDistance = 1000;
-    document.getElementById('btn-volver').style.display = 'block';
-    showInfoPanel(object.userData);
+    if (isInVR) {
+        // In VR: move element forward relative to its position, no OrbitControls
+        const targetPos = object.position.clone();
+        targetPos.z += 800;
+        new TWEEN.Tween(object.position)
+            .to(targetPos, 1200)
+            .easing(TWEEN.Easing.Quadratic.InOut)
+            .onComplete(() => {
+                createAtomicModel(object);
+                createVRInfoSprite(object);
+            })
+            .start();
+    } else {
+        // Desktop: original behavior
+        const targetPos = new THREE.Vector3(0, 0, 800);
+        new TWEEN.Tween(object.position)
+            .to(targetPos, 1200)
+            .easing(TWEEN.Easing.Quadratic.InOut)
+            .onComplete(() => createAtomicModel(object))
+            .start();
+        new TWEEN.Tween(controls.target)
+            .to(targetPos, 1200)
+            .easing(TWEEN.Easing.Quadratic.InOut)
+            .start();
+        controls.minDistance = 200;
+        controls.maxDistance = 1000;
+        document.getElementById('btn-volver').style.display = 'block';
+        showInfoPanel(object.userData);
+    }
 }
 
 function returnToGlobalView() {
     if (!selectedObject) return;
-    hideInfoPanel();
+
+    if (!isInVR) hideInfoPanel();
+    removeVRInfoSprite();
+
     if (atomicModel) {
         new TWEEN.Tween(atomicModel.scale)
             .to({ x: 0, y: 0, z: 0 }, 400)
@@ -565,18 +613,27 @@ function returnToGlobalView() {
         .delay(300)
         .easing(TWEEN.Easing.Quadratic.InOut)
         .start();
-    new TWEEN.Tween(controls.target)
-        .to(originalControlsTarget, 1200)
-        .delay(300)
-        .easing(TWEEN.Easing.Quadratic.InOut)
-        .onComplete(() => {
+
+    if (!isInVR) {
+        new TWEEN.Tween(controls.target)
+            .to(originalControlsTarget, 1200)
+            .delay(300)
+            .easing(TWEEN.Easing.Quadratic.InOut)
+            .onComplete(() => {
+                selectedObject = null;
+                controls.minDistance = 0;
+                controls.maxDistance = Infinity;
+                document.getElementById('btn-volver').style.display = 'none';
+                setTableDimmed(false);
+            })
+            .start();
+    } else {
+        // VR: just clean up after animation
+        setTimeout(() => {
             selectedObject = null;
-            controls.minDistance = 0;
-            controls.maxDistance = Infinity;
-            document.getElementById('btn-volver').style.display = 'none';
             setTableDimmed(false);
-        })
-        .start();
+        }, 1600);
+    }
 }
 
 function highlightObject(obj) {
@@ -604,9 +661,70 @@ function onWindowResize() {
     composer.setSize(window.innerWidth, window.innerHeight);
 }
 
+// ─── VR INFO SPRITE (3D label in VR instead of DOM panel) ────────────────────
+function createVRInfoSprite(cubeMesh) {
+    removeVRInfoSprite();
+    const ud = cubeMesh.userData;
+    const num = ud.numero;
+    const peso = elementosData.find(e => e[0] === num)?.[3] ?? '—';
+
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = 'rgba(8, 18, 38, 0.92)';
+    ctx.roundRect(0, 0, 512, 512, 16);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(100,220,255,0.5)'; ctx.lineWidth = 2;
+    ctx.roundRect(0, 0, 512, 512, 16);
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 80px "Segoe UI", Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(ud.simbolo, 256, 90);
+    ctx.font = '36px "Segoe UI", Arial';
+    ctx.fillStyle = '#88ddff';
+    ctx.fillText(`#${num}  ${ud.nombre}`, 256, 145);
+    ctx.font = '28px "Segoe UI", Arial';
+    ctx.fillStyle = '#aaccdd';
+    ctx.fillText(`Peso: ${peso}`, 256, 200);
+    ctx.fillText(`Estado: ${elementState[num] ?? '—'}`, 256, 245);
+    ctx.fillText(`Fusión: ${meltingPoint[num] != null ? meltingPoint[num] + ' °C' : '—'}`, 256, 290);
+    ctx.fillText(`Ebullición: ${boilingPoint[num] != null ? boilingPoint[num] + ' °C' : '—'}`, 256, 335);
+    ctx.fillText(`Descubierto: ${discoveryYear[num] ?? '—'}`, 256, 380);
+    ctx.font = '22px monospace';
+    ctx.fillStyle = '#66eeff';
+    const config = electronConfig[num] ?? '—';
+    ctx.fillText(config.length > 28 ? config.substring(0, 28) + '…' : config, 256, 430);
+    ctx.font = '20px "Segoe UI", Arial';
+    ctx.fillStyle = '#99bbcc';
+    const uses = (elementUses[num] ?? '—');
+    ctx.fillText(uses.length > 40 ? uses.substring(0, 40) + '…' : uses, 256, 475);
+
+    const tex = new THREE.CanvasTexture(c);
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false });
+    vrInfoSprite = new THREE.Sprite(mat);
+    vrInfoSprite.scale.set(300, 300, 1);
+    vrInfoSprite.position.copy(cubeMesh.position);
+    vrInfoSprite.position.x += 250;
+    tableGroup.add(vrInfoSprite);
+}
+
+function removeVRInfoSprite() {
+    if (!vrInfoSprite) return;
+    if (vrInfoSprite.material.map) vrInfoSprite.material.map.dispose();
+    vrInfoSprite.material.dispose();
+    if (vrInfoSprite.parent) vrInfoSprite.parent.remove(vrInfoSprite);
+    vrInfoSprite = null;
+}
+
 // ─── VR SELECT HANDLER ──────────────────────────────────────────────────────
+let vrSelectCooldown = false;
 function onVRSelect(event) {
-    if (!tableGroup) return;
+    if (!tableGroup || vrSelectCooldown) return;
+    vrSelectCooldown = true;
+    setTimeout(() => { vrSelectCooldown = false; }, 500);
+
     const ctrl = event.target;
     tempMatrix.identity().extractRotation(ctrl.matrixWorld);
     vrRaycaster.ray.origin.setFromMatrixPosition(ctrl.matrixWorld);
@@ -621,7 +739,7 @@ function onVRSelect(event) {
     if (intersects.length > 0) {
         selectedObject = intersects[0].object;
         originalObjectPosition.copy(selectedObject.position);
-        if (clickSound.buffer) clickSound.play();
+        if (clickSound.buffer && !clickSound.isPlaying) clickSound.play();
         clearHighlight();
         setTableDimmed(true);
         ejectObject(selectedObject);
@@ -631,7 +749,8 @@ function onVRSelect(event) {
 // ─── RENDER LOOP (setAnimationLoop for WebXR compat) ────────────────────────
 function animate() {
     TWEEN.update();
-    controls.update();
+    // Only update OrbitControls when NOT in VR
+    if (!isInVR) controls.update();
 
     for (const { group, speed } of orbitGroups) {
         group.rotation.z += speed;
@@ -646,7 +765,7 @@ function animate() {
         });
     }
 
-    // EffectComposer doesn't support WebXR stereo, so render directly in VR
+    // EffectComposer doesn't support WebXR stereo
     if (renderer.xr.isPresenting) {
         renderer.render(scene, camera);
     } else {
