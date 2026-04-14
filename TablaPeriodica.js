@@ -30,7 +30,68 @@ const elementUses = {1:'Combustible de cohetes, producción de amoníaco, celdas
 let scene, camera, renderer, controls, tableGroup, sceneContent;
 let composer, bloomPass;
 let raycaster, mouse, highlightedObject, selectedObject;
-let audioListener, clickSound;
+let audioCtx;
+const SoundEffects = {
+    playHover: function() {
+        if (!audioCtx || audioCtx.state !== 'running') return;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.setValueAtTime(1200, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1600, audioCtx.currentTime + 0.05);
+        gain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.05);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    },
+    playClick: function() {
+        if (!audioCtx) audioCtx = THREE.AudioContext.getContext();
+        if (audioCtx.state !== 'running') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(1000, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.1);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.1);
+    },
+    playReturn: function() {
+        if (!audioCtx) audioCtx = THREE.AudioContext.getContext();
+        if (audioCtx.state !== 'running') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.2);
+        gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.2);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.2);
+    },
+    playReveal: function() {
+        if (!audioCtx) audioCtx = THREE.AudioContext.getContext();
+        if (audioCtx.state !== 'running') audioCtx.resume();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+        osc.frequency.linearRampToValueAtTime(600, audioCtx.currentTime + 0.5);
+        gain.gain.setValueAtTime(0, audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.05, audioCtx.currentTime + 0.2);
+        gain.gain.linearRampToValueAtTime(0.001, audioCtx.currentTime + 0.8);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.8);
+    }
+};
 const originalControlsTarget = new THREE.Vector3();
 let originalObjectPosition = new THREE.Vector3();
 
@@ -104,13 +165,13 @@ function init() {
 
     raycaster = new THREE.Raycaster();
     mouse = new THREE.Vector2();
-    audioListener = new THREE.AudioListener();
-    camera.add(audioListener);
-    clickSound = new THREE.Audio(audioListener);
-    new THREE.AudioLoader().load('https://threejs.org/examples/sounds/ping_pong.mp3', (buffer) => {
-        clickSound.setBuffer(buffer);
-        clickSound.setVolume(0.5);
-    });
+    
+    // Inicializar contexto de audio en la primera interacción
+    const initAudio = () => {
+        if (!audioCtx) audioCtx = THREE.AudioContext.getContext();
+        if (audioCtx.state !== 'running') audioCtx.resume();
+    };
+    document.addEventListener('click', initAudio, { once: true });
 
     window.addEventListener('resize', onWindowResize);
     renderer.domElement.addEventListener('mousemove', onMouseMove);
@@ -484,7 +545,11 @@ function onMouseMove(event) {
     const intersects = raycaster.intersectObjects(tableGroup.children);
     if (intersects.length > 0) {
         const hit = intersects[0].object;
-        if (highlightedObject !== hit) { clearHighlight(); highlightObject(hit); }
+        if (highlightedObject !== hit) { 
+            clearHighlight(); 
+            SoundEffects.playHover();
+            highlightObject(hit); 
+        }
     } else {
         clearHighlight();
     }
@@ -497,7 +562,7 @@ function onClick(event) {
     if (intersects.length > 0) {
         selectedObject = intersects[0].object;
         originalObjectPosition.copy(selectedObject.position);
-        if (clickSound.buffer) clickSound.play();
+        SoundEffects.playClick();
         clearHighlight();
         setTableDimmed(true);   // ─── IMPROVEMENT #5
         ejectObject(selectedObject);
@@ -514,6 +579,7 @@ function ejectObject(object) {
         .to(targetPos, 1200)
         .easing(TWEEN.Easing.Quadratic.InOut)
         .onComplete(() => {
+            SoundEffects.playReveal();
             createAtomicModel(object);
             if (isInVR) createVRInfoSprite(object);
         })
@@ -533,6 +599,8 @@ function ejectObject(object) {
 
 function returnToGlobalView() {
     if (!selectedObject) return;
+
+    SoundEffects.playReturn();
 
     if (!isInVR) hideInfoPanel();
     removeVRInfoSprite();
@@ -676,7 +744,7 @@ function onVRSelect(event) {
         if (allCubes.includes(hit.object)) {
             selectedObject = hit.object;
             originalObjectPosition.copy(selectedObject.position);
-            if (clickSound.buffer && !clickSound.isPlaying) clickSound.play();
+            SoundEffects.playClick();
             clearHighlight();
             setTableDimmed(true);
             ejectObject(selectedObject);
