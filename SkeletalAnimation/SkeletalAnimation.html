@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Skeletal Animation – Three.js</title>
+    <link rel="stylesheet" href="SkeletalAnimation.css">
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loading-overlay">
+    <div class="spinner"></div>
+    <p>Cargando modelo animado…</p>
+</div>
+
+<!-- Info -->
+<div id="info">Skeletal Animation &mdash; Modelo: RobotExpressive &mdash; Usa los botones o teclas numéricas para cambiar animación</div>
+
+<!-- HUD -->
+<div id="hud">
+    <h2>Animaciones</h2>
+    <div id="animation-buttons"></div>
+    <div id="key-hints"></div>
+</div>
+
+<!-- Import Map (Three.js v0.158) -->
+<script type="importmap">
+    {
+        "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.158.0/examples/jsm/"
+        }
+    }
+</script>
+
+<script type="module" src="SkeletalAnimation.js"></script>
+</body>
+</html>
