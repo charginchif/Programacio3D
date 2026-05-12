@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+    <title>Pac-Man 3D VR</title>
+    <script type="module" crossorigin src="./assets/index-lSStU-Lo.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DeEl-j9q.css">
+  </head>
+  <body>
+    <div id="ui">
+      <div class="hud-item">ALMAS: <span id="score">0</span></div>
+      <div class="hud-item">LATIDOS: <span id="lives">3</span></div>
+      <div id="game-over" style="display:none; color: darkred; margin-top: 20px; font-size: 40px; text-shadow: 0 0 10px red;">HAS SIDO DEVORADO</div>
+      <div id="win" style="display:none; color: white; margin-top: 20px; font-size: 40px; text-shadow: 0 0 10px white;">HAS SOBREVIVIDO</div>
+    </div>
+    
+    <div id="start-screen">
+      <h1>EL LABERINTO MALDITO</h1>
+      <p class="subtitle">EXPERIENCIA VR DE TERROR</p>
+      <div class="instructions">
+        <p>🎮 <b>PC:</b> WASD para mover, Ratón/Flechas para mirar.</p>
+        <p>🥽 <b>VR:</b> Joystick para mover, gira tu cabeza para iluminar.</p>
+        <p>Recoge las almas perdidas. Huye de las sombras.</p>
+      </div>
+      <button id="start-btn">ENTRAR A LA OSCURIDAD</button>
+      <div id="vr-container"></div>
+    </div>
+
+  </body>
+</html>
