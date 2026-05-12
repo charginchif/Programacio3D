@@ -8,23 +8,69 @@
     <link rel="stylesheet" crossorigin href="./assets/index-DeEl-j9q.css">
   </head>
   <body>
+    <div id="vignette"></div>
+    <div id="scanlines"></div>
+
     <div id="ui">
-      <div class="hud-item">ALMAS: <span id="score">0</span></div>
-      <div class="hud-item">LATIDOS: <span id="lives">3</span></div>
-      <div id="game-over" style="display:none; color: darkred; margin-top: 20px; font-size: 40px; text-shadow: 0 0 10px red;">HAS SIDO DEVORADO</div>
-      <div id="win" style="display:none; color: white; margin-top: 20px; font-size: 40px; text-shadow: 0 0 10px white;">HAS SOBREVIVIDO</div>
-    </div>
-    
-    <div id="start-screen">
-      <h1>EL LABERINTO MALDITO</h1>
-      <p class="subtitle">EXPERIENCIA VR DE TERROR</p>
-      <div class="instructions">
-        <p>🎮 <b>PC:</b> WASD para mover, Ratón/Flechas para mirar.</p>
-        <p>🥽 <b>VR:</b> Joystick para mover, gira tu cabeza para iluminar.</p>
-        <p>Recoge las almas perdidas. Huye de las sombras.</p>
+      <div class="hud-left">
+        <div class="hud-item">
+          <span class="hud-icon">✦</span>
+          <span class="hud-label">ALMAS</span>
+          <span id="score" class="hud-value">0</span>
+        </div>
       </div>
-      <button id="start-btn">ENTRAR A LA OSCURIDAD</button>
-      <div id="vr-container"></div>
+      <div class="hud-right">
+        <div class="hud-item">
+          <span class="hud-icon">♥</span>
+          <span class="hud-label">LATIDOS</span>
+          <span id="lives" class="hud-value">3</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="game-over" style="display:none">
+      <div class="overlay-bg"></div>
+      <div class="overlay-content">
+        <div class="overlay-icon">💀</div>
+        <h2>HAS SIDO DEVORADO</h2>
+        <p class="overlay-sub">LAS SOMBRAS TE RECLAMARON</p>
+        <p class="final-score">ALMAS: <span id="final-score">0</span></p>
+        <button onclick="location.reload()" class="retry-btn">INTENTAR DE NUEVO</button>
+      </div>
+    </div>
+
+    <div id="win" style="display:none">
+      <div class="overlay-bg"></div>
+      <div class="overlay-content">
+        <div class="overlay-icon win-icon">👑</div>
+        <h2 class="win-title">HAS SOBREVIVIDO</h2>
+        <p class="overlay-sub win-sub">EL LABERINTO HA SIDO PURGADO</p>
+        <p class="final-score gold-text">ALMAS: <span id="win-score">0</span></p>
+        <button onclick="location.reload()" class="retry-btn">JUGAR DE NUEVO</button>
+      </div>
+    </div>
+
+    <div id="start-screen">
+      <div class="start-border top-left"></div>
+      <div class="start-border top-right"></div>
+      <div class="start-border bottom-left"></div>
+      <div class="start-border bottom-right"></div>
+      <div class="start-inner">
+        <div class="start-skull">☠</div>
+        <h1>EL LABERINTO MALDITO</h1>
+        <p class="subtitle">EXPERIENCIA VR DE <span class="terror-text">TERROR</span></p>
+        <div class="instructions">
+          <p><span class="icon-pc">🖥</span> <b>PC:</b> WASD para mover · Ratón/Flechas para mirar</p>
+          <p><span class="icon-vr">🥽</span> <b>VR:</b> Joystick para mover · Gira la cabeza para iluminar</p>
+          <p class="instruction-flavor">Recoge las almas perdidas. Huye de las sombras.</p>
+        </div>
+        <button id="start-btn">
+          <span class="btn-border"></span>
+          ENTRAR A LA OSCURIDAD
+          <span class="btn-arrow">▶</span>
+        </button>
+        <div id="vr-container"></div>
+      </div>
     </div>
 
     <canvas id="minimap" width="190" height="190"></canvas>
@@ -40,6 +86,40 @@
         return window.__PACMAN_STATE__;
       }
 
+      let accessibleCache = null;
+
+      function getAccessibleTiles(map) {
+        const accessible = new Set();
+        const rows = map.length;
+        const cols = map[0].length;
+        let sr = -1, sc = -1;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (map[r][c] === '4') { sr = r; sc = c; break; }
+          }
+          if (sr >= 0) break;
+        }
+        if (sr < 0) return accessible;
+        const queue = [[sr, sc]];
+        const visited = new Set();
+        visited.add(`${sr},${sc}`);
+        while (queue.length > 0) {
+          const [r, c] = queue.shift();
+          accessible.add(`${r},${c}`);
+          for (const [dr, dc] of [[0,1],[0,-1],[1,0],[-1,0]]) {
+            const nr = r + dr, nc = c + dc;
+            if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) {
+              const key = `${nr},${nc}`;
+              if (!visited.has(key) && map[nr][nc] !== '1' && map[nr][nc] !== '3') {
+                visited.add(key);
+                queue.push([nr, nc]);
+              }
+            }
+          }
+        }
+        return accessible;
+      }
+
       function drawMap() {
         state = getState();
         if (!state || !state.Bc) {
@@ -49,20 +129,23 @@
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Dibujar paredes
+        if (!accessibleCache) accessibleCache = getAccessibleTiles(state.Bc);
+
         for (let row = 0; row < mapSize; row++) {
           const line = state.Bc[row];
           for (let col = 0; col < mapSize; col++) {
             const char = line[col];
             const x = col * cellSize;
             const y = row * cellSize;
+            const key = `${row},${col}`;
             if (char === '1') {
               ctx.fillStyle = '#222';
-              ctx.fillRect(x, y, cellSize, cellSize);
+            } else if (char === '3' || !accessibleCache.has(key)) {
+              ctx.fillStyle = '#1a0a0a';
             } else {
               ctx.fillStyle = '#000';
-              ctx.fillRect(x, y, cellSize, cellSize);
             }
+            ctx.fillRect(x, y, cellSize, cellSize);
           }
         }
 
@@ -117,6 +200,253 @@
       }
 
       drawMap();
+    })();
+    </script>
+    <script>
+    (function() {
+      let bgCtx = null, bgPlaying = false, bgStop = null, wasRunning = false;
+      const freqMap = {
+        C3:130.81, D3:146.83, E3:164.81, F3:174.61, G3:196, A3:220, Bb3:233.08, B3:246.94,
+        C4:261.63, Db4:277.18, D4:293.66, Eb4:311.13, E4:329.63, F4:349.23, Gb4:369.99,
+        G4:392, Ab4:415.3, A4:440, Bb4:466.16, B4:493.88, C5:523.25, D5:587.33, Eb5:622.25,
+        E5:659.25, F5:698.46, G5:783.99, A5:880
+      };
+
+      function playBgMusic() {
+        if (bgPlaying) return;
+        try { bgCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) { return; }
+        bgPlaying = true;
+        const ctx = bgCtx, tempo = 155, beat = 60 / tempo;
+        if (ctx.state === 'suspended') ctx.resume();
+
+        const melody = [
+          [0, 'E4', .5, 'square', .055], [.5, 'G4', .5, 'square', .055],
+          [1, 'A4', .5, 'square', .055], [1.5, 'E4', .5, 'square', .055],
+          [2, 'A4', .5, 'square', .055], [2.5, 'C5', .5, 'square', .055],
+          [3, 'A4', 1, 'square', .055], [4, 'G4', .5, 'square', .055],
+          [4.5, 'A4', .5, 'square', .055], [5, 'C5', .5, 'square', .055],
+          [5.5, 'A4', .5, 'square', .055], [6, 'C5', .5, 'square', .055],
+          [6.5, 'D5', .5, 'square', .055], [7, 'C5', 1.5, 'square', .055],
+          [8.5, 'Bb4', .5, 'square', .055],
+          [9, 'A4', .5, 'square', .055], [9.5, 'G4', .5, 'square', .055],
+          [10, 'A4', .5, 'square', .055], [10.5, 'G4', .5, 'square', .055],
+          [11, 'F4', .5, 'square', .055], [11.5, 'E4', .5, 'square', .055],
+          [12, 'D4', .5, 'square', .055], [12.5, 'E4', .5, 'square', .055],
+          [13, 'F4', .5, 'square', .055], [13.5, 'G4', .5, 'square', .055],
+          [14, 'E4', .5, 'square', .055], [14.5, 'C4', .5, 'square', .055],
+          [15, 'D4', 1, 'square', .055],
+          [0, 'A2', 4, 'triangle', .1], [4, 'F2', 4, 'triangle', .1],
+          [8, 'C3', 4, 'triangle', .1], [12, 'E2', 2, 'triangle', .1],
+          [14, 'G2', 2, 'triangle', .1],
+          [0, 'A3', 16, 'sine', .025],
+        ];
+        const loopLen = 16;
+        let running = true;
+
+        function schedule(startBeat) {
+          if (!running) return;
+          const now = ctx.currentTime, startT = now + .05;
+          for (const [off, note, dur, type, vol] of melody) {
+            try {
+              const t = startT + (off + startBeat) * beat, endT = t + dur * beat;
+              const osc = ctx.createOscillator(), gain = ctx.createGain();
+              osc.type = type;
+              osc.frequency.setValueAtTime(freqMap[note] || 440, t);
+              gain.gain.setValueAtTime(0, t);
+              gain.gain.linearRampToValueAtTime(vol, t + .008);
+              gain.gain.setValueAtTime(vol, endT - .012);
+              gain.gain.linearRampToValueAtTime(0, endT);
+              osc.connect(gain);
+              gain.connect(ctx.destination);
+              osc.start(t);
+              osc.stop(endT + .05);
+            } catch(e) {}
+          }
+          setTimeout(() => schedule(startBeat + loopLen), loopLen * beat * 950);
+        }
+        schedule(0);
+        bgStop = () => { running = false; };
+      }
+
+      function stopBgMusic() {
+        if (bgStop) { bgStop(); bgStop = null; }
+        bgPlaying = false;
+        if (bgCtx) { bgCtx.close().catch(()=>{}); bgCtx = null; }
+      }
+
+      (function loop() {
+        try {
+          const s = window.__PACMAN_STATE__;
+          if (s) {
+            const running = s.Dc && !s.Ec;
+            if (running && !wasRunning) playBgMusic();
+            else if (!running && wasRunning) stopBgMusic();
+            wasRunning = running;
+          }
+        } catch(e) {}
+        setTimeout(loop, 200);
+      })();
+    })();
+    </script>
+    <script>
+    (function() {
+      let sfxCtx = null;
+      let lastPos = null, lastStepTime = 0;
+      let lastKcLen = -1, lastWc = 0;
+      let lastHeartbeat = 0;
+      let wasRunning = false;
+
+      function ctx() {
+        if (!sfxCtx) try { sfxCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e) {}
+        return sfxCtx && sfxCtx.state !== 'suspended' ? sfxCtx : null;
+      }
+
+      function playStep() {
+        const c = ctx(); if (!c) return;
+        const t = c.currentTime, v = .03 + Math.random() * .015;
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(65 + Math.random() * 10, t);
+        o.frequency.exponentialRampToValueAtTime(30, t + .06);
+        g.gain.setValueAtTime(v, t);
+        g.gain.exponentialRampToValueAtTime(.001, t + .1);
+        o.connect(g); g.connect(c.destination);
+        o.start(t); o.stop(t + .12);
+      }
+
+      function playEat() {
+        const c = ctx(); if (!c) return;
+        const t = c.currentTime;
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = 'square';
+        o.frequency.setValueAtTime(880, t);
+        o.frequency.exponentialRampToValueAtTime(1760, t + .06);
+        g.gain.setValueAtTime(.025, t);
+        g.gain.exponentialRampToValueAtTime(.001, t + .12);
+        o.connect(g); g.connect(c.destination);
+        o.start(t); o.stop(t + .15);
+        const o2 = c.createOscillator(), g2 = c.createGain();
+        o2.type = 'square';
+        o2.frequency.setValueAtTime(1320, t + .04);
+        o2.frequency.exponentialRampToValueAtTime(2640, t + .1);
+        g2.gain.setValueAtTime(.015, t + .04);
+        g2.gain.exponentialRampToValueAtTime(.001, t + .16);
+        o2.connect(g2); g2.connect(c.destination);
+        o2.start(t + .04); o2.stop(t + .18);
+      }
+
+      function playPowerEat() {
+        const c = ctx(); if (!c) return;
+        const t = c.currentTime;
+        [ [523.25, 0], [659.25, .08], [783.99, .16] ].forEach(([f, d]) => {
+          const o = c.createOscillator(), g = c.createGain();
+          o.type = 'square';
+          o.frequency.setValueAtTime(f, t + d);
+          o.frequency.exponentialRampToValueAtTime(f * 1.5, t + d + .12);
+          g.gain.setValueAtTime(.03, t + d);
+          g.gain.exponentialRampToValueAtTime(.001, t + d + .18);
+          o.connect(g); g.connect(c.destination);
+          o.start(t + d); o.stop(t + d + .2);
+        });
+      }
+
+      function playHeartbeat(urgency) {
+        const c = ctx(); if (!c) return;
+        const t = c.currentTime, vol = .02 + urgency * .08, freq = 28 + urgency * 27;
+        for (const [d, f, v] of [[0, freq, 1], [.12, freq * 1.15, .55]]) {
+          const o = c.createOscillator(), g = c.createGain();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(f, t + d);
+          g.gain.setValueAtTime(0, t + d);
+          g.gain.linearRampToValueAtTime(vol * v, t + d + .01);
+          g.gain.exponentialRampToValueAtTime(.001, t + d + .18);
+          o.connect(g); g.connect(c.destination);
+          o.start(t + d); o.stop(t + d + .22);
+        }
+      }
+
+      function playWallBump() {
+        const c = ctx(); if (!c) return;
+        const t = c.currentTime;
+        const o = c.createOscillator(), g = c.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(55, t);
+        o.frequency.exponentialRampToValueAtTime(18, t + .08);
+        g.gain.setValueAtTime(.045, t);
+        g.gain.exponentialRampToValueAtTime(.001, t + .14);
+        o.connect(g); g.connect(c.destination);
+        o.start(t); o.stop(t + .16);
+      }
+
+      (function loop() {
+        try {
+          const s = window.__PACMAN_STATE__;
+          if (s) {
+            const running = s.Dc && !s.Ec;
+            if (running && !wasRunning) {
+              const c = sfxCtx;
+              if (c && c.state === 'suspended') c.resume();
+              lastKcLen = -1; lastWc = 0; lastPos = null;
+            }
+            if (running && ctx()) {
+              const now = performance.now();
+              if (s.Ic && s.Ic.position) {
+                const px = s.Ic.position.x, pz = s.Ic.position.z;
+                if (lastPos) {
+                  const dx = px - lastPos.x, dz = pz - lastPos.z, d = Math.hypot(dx, dz);
+                  if (d > .01 && d < 10 && now - lastStepTime > 150) { playStep(); lastStepTime = now; }
+                }
+                lastPos = { x: px, z: pz };
+              } else { lastPos = null; }
+              if (s.Kc) {
+                if (lastKcLen === -1) { lastKcLen = s.Kc.length; lastWc = s.wc; }
+                if (s.Kc.length < lastKcLen) {
+                  (s.wc - lastWc >= 50) ? playPowerEat() : playEat();
+                }
+                lastKcLen = s.Kc.length; lastWc = s.wc;
+              }
+              if (s.qc && s.Ic) {
+                let near = Infinity;
+                for (const g of s.qc) {
+                  if (!g.mesh.visible) continue;
+                  const d = Math.hypot(g.mesh.position.x - s.Ic.position.x, g.mesh.position.z - s.Ic.position.z);
+                  if (d < near) near = d;
+                }
+                if (near < 8) {
+                  const u = 1 - Math.max(0, (near - 1)) / 7;
+                  if (now - lastHeartbeat > 1200 - u * 900) { playHeartbeat(u); lastHeartbeat = now; }
+                }
+              }
+            }
+            wasRunning = running;
+            if (!running) { lastPos = null; lastKcLen = -1; }
+          }
+        } catch(e) {}
+        requestAnimationFrame(loop);
+      })();
+    })();
+    </script>
+    <script>
+    (function() {
+      function updateScores() {
+        try {
+          const s = window.__PACMAN_STATE__;
+          if (s && s.wc !== undefined) {
+            const go = document.getElementById('game-over');
+            if (go && go.style.display !== 'none') {
+              const el = document.getElementById('final-score');
+              if (el) el.textContent = s.wc;
+            }
+            const win = document.getElementById('win');
+            if (win && win.style.display !== 'none') {
+              const el = document.getElementById('win-score');
+              if (el) el.textContent = s.wc;
+            }
+          }
+        } catch(e) {}
+        requestAnimationFrame(updateScores);
+      }
+      requestAnimationFrame(updateScores);
     })();
     </script>
   </body>
