@@ -27,5 +27,97 @@
       <div id="vr-container"></div>
     </div>
 
+    <canvas id="minimap" width="190" height="190"></canvas>
+    <script>
+    (function() {
+      const canvas = document.getElementById('minimap');
+      const ctx = canvas.getContext('2d');
+      const cellSize = 10;
+      const mapSize = 19;
+      let state = null;
+
+      function getState() {
+        return window.__PACMAN_STATE__;
+      }
+
+      function drawMap() {
+        state = getState();
+        if (!state || !state.Bc) {
+          requestAnimationFrame(drawMap);
+          return;
+        }
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Dibujar paredes
+        for (let row = 0; row < mapSize; row++) {
+          const line = state.Bc[row];
+          for (let col = 0; col < mapSize; col++) {
+            const char = line[col];
+            const x = col * cellSize;
+            const y = row * cellSize;
+            if (char === '1') {
+              ctx.fillStyle = '#222';
+              ctx.fillRect(x, y, cellSize, cellSize);
+            } else {
+              ctx.fillStyle = '#000';
+              ctx.fillRect(x, y, cellSize, cellSize);
+            }
+          }
+        }
+
+        // Dibujar puntos restantes
+        if (state.Kc) {
+          for (const dot of state.Kc) {
+            const dx = (dot.x / state.Vc) * cellSize + cellSize / 2;
+            const dy = (dot.z / state.Vc) * cellSize + cellSize / 2;
+            ctx.beginPath();
+            if (dot.type === 'power') {
+              ctx.fillStyle = '#0ff';
+              ctx.arc(dx, dy, 3, 0, Math.PI * 2);
+            } else {
+              ctx.fillStyle = '#aaa';
+              ctx.arc(dx, dy, 1.5, 0, Math.PI * 2);
+            }
+            ctx.fill();
+          }
+        }
+
+        // Dibujar fantasmas
+        if (state.qc) {
+          for (const ghost of state.qc) {
+            if (!ghost.mesh.visible) continue;
+            const gx = (ghost.mesh.position.x / state.Vc) * cellSize + cellSize / 2;
+            const gy = (ghost.mesh.position.z / state.Vc) * cellSize + cellSize / 2;
+            ctx.beginPath();
+            ctx.fillStyle = ghost.state === 'frightened' ? '#00f' : '#f00';
+            ctx.arc(gx, gy, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+
+        // Dibujar jugador (Pac-Man)
+        if (state.Ic && state.Ic.position) {
+          let px = (state.Ic.position.x / state.Vc) * cellSize + cellSize / 2;
+          let py = (state.Ic.position.z / state.Vc) * cellSize + cellSize / 2;
+          // Manejar wrap-around del tunel
+          const mapPixelSize = mapSize * cellSize;
+          if (px < 0) px += mapPixelSize;
+          if (px > mapPixelSize) px -= mapPixelSize;
+          ctx.beginPath();
+          ctx.fillStyle = '#ff0';
+          ctx.arc(px, py, 4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#ffaa00';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+
+        requestAnimationFrame(drawMap);
+      }
+
+      drawMap();
+    })();
+    </script>
   </body>
 </html>
