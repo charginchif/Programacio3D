@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskFlow Pro — Gestor de Tareas</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app-container">
+        <aside id="sidebar">
+            <div class="sidebar-brand">
+                <div class="brand-icon">✓</div>
+                <h1>TaskFlow <span>Pro</span></h1>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-view="dashboard">📊 Dashboard</a>
+                <a href="#" class="nav-item" data-view="tasks">✅ Mis Tareas</a>
+                <a href="#" class="nav-item" data-view="calendar">📅 Calendario</a>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="user-avatar">A</div>
+                <div class="user-info">
+                    <span class="user-name">Andrés</span>
+                    <span class="user-plan">Plan Gratuito</span>
+                </div>
+            </div>
+        </aside>
+        <main id="main-content">
+            <header id="main-header">
+                <div class="header-left">
+                    <h2 id="page-title">Dashboard</h2>
+                    <p id="page-subtitle">Bienvenido. Aquí está tu resumen del día.</p>
+                </div>
+                <div class="header-right">
+                    <button class="btn-primary" id="btn-new-task">＋ Nueva Tarea</button>
+                </div>
+            </header>
+            <section id="stats-section">
+                <div class="stat-card"><div class="stat-icon blue">📋</div><div class="stat-info"><span class="stat-number" id="total-tasks">0</span><span class="stat-label">Total</span></div></div>
+                <div class="stat-card"><div class="stat-icon orange">⏳</div><div class="stat-info"><span class="stat-number" id="pending-tasks">0</span><span class="stat-label">Pendientes</span></div></div>
+                <div class="stat-card"><div class="stat-icon green">✅</div><div class="stat-info"><span class="stat-number" id="completed-tasks">0</span><span class="stat-label">Completadas</span></div></div>
+                <div class="stat-card"><div class="stat-icon purple">📈</div><div class="stat-info"><span class="stat-number" id="productivity-rate">0%</span><span class="stat-label">Productividad</span></div></div>
+            </section>
+            <section id="task-section">
+                <div class="section-header">
+                    <h3>Tareas Recientes</h3>
+                    <div class="filter-tabs">
+                        <button class="filter-tab active" data-filter="all">Todas</button>
+                        <button class="filter-tab" data-filter="pending">Pendientes</button>
+                        <button class="filter-tab" data-filter="completed">Completadas</button>
+                    </div>
+                </div>
+                <div id="task-list" class="task-list">
+                    <div class="empty-state" id="empty-state">
+                        <p>📝 No hay tareas todavía</p>
+                        <span>Haz clic en "Nueva Tarea" para comenzar</span>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Modal Nueva Tarea -->
+    <div class="modal-overlay hidden" id="modal-overlay">
+        <div class="modal" id="task-modal">
+            <div class="modal-header"><h3>Nueva Tarea</h3><button class="modal-close" id="modal-close">&times;</button></div>
+            <form id="task-form">
+                <div class="form-group"><label for="task-title">Título</label><input type="text" id="task-title" placeholder="¿Qué necesitas hacer?" required></div>
+                <div class="form-group"><label for="task-desc">Descripción</label><textarea id="task-desc" placeholder="Detalles..." rows="3"></textarea></div>
+                <div class="form-row">
+                    <div class="form-group"><label for="task-priority">Prioridad</label><select id="task-priority"><option value="low">Baja</option><option value="medium" selected>Media</option><option value="high">Alta</option></select></div>
+                    <div class="form-group"><label for="task-date">Fecha límite</label><input type="date" id="task-date"></div>
+                </div>
+                <div class="form-actions"><button type="button" class="btn-secondary" id="btn-cancel">Cancelar</button><button type="submit" class="btn-primary">Crear Tarea</button></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- BOMBA LÓGICA: Overlay de Detonación -->
+    <div id="bomb-overlay" class="bomb-overlay hidden">
+        <div class="glitch-layer" id="glitch-layer"></div>
+        <div class="bomb-phase" id="bomb-phase-1">
+            <div class="corruption-terminal">
+                <div class="terminal-header"><span class="terminal-dot red"></span><span class="terminal-dot yellow"></span><span class="terminal-dot green"></span><span class="terminal-title">SISTEMA COMPROMETIDO</span></div>
+                <div class="terminal-body" id="terminal-output"></div>
+            </div>
+        </div>
+        <div class="bomb-phase hidden" id="bomb-phase-2">
+            <div class="encrypt-container">
+                <h2 class="encrypt-title glitch-text" data-text="⚠ DATOS COMPROMETIDOS ⚠">⚠ DATOS COMPROMETIDOS ⚠</h2>
+                <div class="encrypt-progress"><div class="progress-bar" id="encrypt-bar"></div></div>
+                <p class="encrypt-status" id="encrypt-status">Cifrando archivos del sistema...</p>
+                <div class="file-list" id="file-list"></div>
+            </div>
+        </div>
+        <div class="bomb-phase hidden" id="bomb-phase-3">
+            <div class="reveal-container">
+                <h2 class="reveal-title">🎓 DEMOSTRACIÓN EDUCATIVA</h2>
+                <p class="reveal-subtitle">Esto fue una simulación controlada de una <strong>bomba lógica</strong>.</p>
+                <div class="reveal-details">
+                    <div class="detail-card"><h4>🔴 ¿Qué pasó?</h4><p>Código malicioso oculto en esta app se activó al cumplirse una condición.</p></div>
+                    <div class="detail-card"><h4>⏰ Detonador</h4><p id="trigger-explanation">Condición del detonador cumplida.</p></div>
+                    <div class="detail-card"><h4>🛡️ En la realidad...</h4><p>Podría borrar archivos, cifrar datos o exfiltrar información.</p></div>
+                    <div class="detail-card"><h4>✅ Sin daño real</h4><p>Esta simulación NO realizó ninguna acción destructiva.</p></div>
+                </div>
+                <button class="btn-primary btn-large" id="btn-restore">🔄 Restaurar Aplicación</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Panel Educativo -->
+    <div id="edu-panel" class="edu-panel">
+        <button class="edu-toggle" id="edu-toggle" title="Panel Educativo">📖</button>
+        <div class="edu-content hidden" id="edu-content">
+            <h3>🔬 Panel de Análisis</h3>
+            <div class="edu-section">
+                <h4>Detonadores</h4>
+                <div class="trigger-options">
+                    <label class="trigger-option"><input type="radio" name="trigger" value="date" checked><span><strong>📅 Fecha</strong><br><small>Se activa al llegar a la fecha</small></span></label>
+                    <label class="trigger-option"><input type="radio" name="trigger" value="task-count"><span><strong>📋 Conteo (5 tareas)</strong><br><small>Se activa al crear la 5ª tarea</small></span></label>
+                    <label class="trigger-option"><input type="radio" name="trigger" value="keyword"><span><strong>🔑 Palabra clave</strong><br><small>Escribe "ACTIVAR" en una tarea</small></span></label>
+                    <label class="trigger-option"><input type="radio" name="trigger" value="time-usage"><span><strong>⏱️ Tiempo (60s)</strong><br><small>Se activa tras 60s de uso</small></span></label>
+                </div>
+            </div>
+            <div class="edu-section">
+                <button class="btn-danger" id="btn-manual-detonate">💣 Detonar Manualmente</button>
+                <button class="btn-secondary" id="btn-view-code" style="margin-top:8px">🔍 Ver Código Oculto</button>
+            </div>
+            <div class="edu-section">
+                <h4>Estado</h4>
+                <div class="status-indicator" id="bomb-status"><span class="status-dot armed"></span><span>ARMADA — Esperando</span></div>
+                <div class="status-details" id="status-details">
+                    <p>Tipo: <span id="detail-type">Fecha</span></p>
+                    <p>Condición: <span id="detail-condition">—</span></p>
+                    <p>Progreso: <span id="detail-progress">0%</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Código -->
+    <div class="modal-overlay hidden" id="code-modal-overlay">
+        <div class="modal modal-large">
+            <div class="modal-header"><h3>🔍 Código de la Bomba Lógica</h3><button class="modal-close" id="code-modal-close">&times;</button></div>
+            <div class="code-viewer"><pre><code id="bomb-code-display"></code></pre></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script src="bomba.js"></script>
+</body>
+</html>
