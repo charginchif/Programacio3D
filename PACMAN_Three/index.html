@@ -4,6 +4,39 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
     <title>Pac-Man 3D VR</title>
+    <script>
+    (function() {
+      var isMobile = /Mobi|Android|Quest|Oculus|Meta|iPhone|iPad|iPod|Opera Mini|IEMobile|webOS/i.test(navigator.userAgent) || window.innerWidth < 800 || ('ontouchstart' in window && window.innerWidth < 1024);
+      if (isMobile) {
+        Object.defineProperty(window, 'devicePixelRatio', { get: function() { return 1.0 }, configurable: true });
+      }
+      var _origGetContext = HTMLCanvasElement.prototype.getContext;
+      HTMLCanvasElement.prototype.getContext = function(type, attrs) {
+        if (type === 'webgl2' || type === 'webgl') {
+          attrs = attrs || {};
+          attrs.antialias = !isMobile && attrs.antialias;
+          attrs.powerPreference = 'high-performance';
+          if (attrs.alpha === undefined) attrs.alpha = false;
+        }
+        var ctx = _origGetContext.call(this, type, attrs);
+        if (ctx && typeof ctx.getExtension === 'function') {
+          try {
+            var ext = ctx.getExtension('WEBGL_lose_context');
+            if (ext) {
+              ctx.canvas.addEventListener('webglcontextlost', function(e) {
+                e.preventDefault();
+                setTimeout(function() { ext.restoreContext(); }, 500);
+              });
+              ctx.canvas.addEventListener('webglcontextrestored', function() {
+                location.reload();
+              });
+            }
+          } catch(e) {}
+        }
+        return ctx;
+      };
+    })();
+    </script>
     <script type="module" crossorigin src="./assets/index-lSStU-Lo.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-DeEl-j9q.css">
   </head>
@@ -59,6 +92,21 @@
         <div class="start-skull">☠</div>
         <h1>EL LABERINTO MALDITO</h1>
         <p class="subtitle">EXPERIENCIA VR DE <span class="terror-text">TERROR</span></p>
+        <div class="style-selector">
+          <span class="style-label">ESTILO:</span>
+          <label class="style-option selected">
+            <input type="radio" name="style" value="terror" checked>
+            <span class="style-name">☠ TERROR</span>
+          </label>
+          <label class="style-option">
+            <input type="radio" name="style" value="pixelart">
+            <span class="style-name">🟡 PIXEL ART</span>
+          </label>
+          <label class="style-option">
+            <input type="radio" name="style" value="realista">
+            <span class="style-name">📷 REALISTA</span>
+          </label>
+        </div>
         <div class="instructions">
           <p><span class="icon-pc">🖥</span> <b>PC:</b> WASD para mover · Ratón/Flechas para mirar</p>
           <p><span class="icon-vr">🥽</span> <b>VR:</b> Joystick para mover · Gira la cabeza para iluminar</p>
@@ -428,6 +476,21 @@
     </script>
     <script>
     (function() {
+      var radios = document.querySelectorAll('input[name="style"]');
+      for (var i = 0; i < radios.length; i++) {
+        radios[i].addEventListener('change', function() {
+          document.body.classList.remove('style-pixelart', 'style-realista');
+          if (this.value === 'pixelart') {
+            document.body.classList.add('style-pixelart');
+          } else if (this.value === 'realista') {
+            document.body.classList.add('style-realista');
+          }
+        });
+      }
+    })();
+    </script>
+    <script>
+    (function() {
       function updateScores() {
         try {
           const s = window.__PACMAN_STATE__;
@@ -447,6 +510,63 @@
         requestAnimationFrame(updateScores);
       }
       requestAnimationFrame(updateScores);
+    })();
+    </script>
+    <script>
+    (function() {
+      var gameCanvas = null, canvasOptimized = false;
+      function findGameCanvas() {
+        if (gameCanvas) return gameCanvas;
+        var all = document.querySelectorAll('canvas');
+        for (var i = 0; i < all.length; i++) {
+          if (all[i].id !== 'minimap') { gameCanvas = all[i]; return gameCanvas; }
+        }
+        return null;
+      }
+      function optimizeCanvas() {
+        if (canvasOptimized) return;
+        var c = findGameCanvas();
+        if (!c) { setTimeout(optimizeCanvas, 100); return; }
+        canvasOptimized = true;
+        c.style.touchAction = 'none';
+        c.setAttribute('touch-action', 'none');
+        document.addEventListener('touchmove', function(e) {
+          if (e.target === c || c.contains(e.target)) e.preventDefault();
+        }, { passive: false });
+        document.addEventListener('gesturestart', function(e) { e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturechange', function(e) { e.preventDefault(); }, { passive: false });
+        document.addEventListener('gestureend', function(e) { e.preventDefault(); }, { passive: false });
+      }
+      optimizeCanvas();
+      document.addEventListener('visibilitychange', function() {
+        var c = findGameCanvas();
+        if (!c) return;
+        if (document.hidden) {
+          c.style.width = '1px';
+          c.style.height = '1px';
+          c.width = 1;
+          c.height = 1;
+        } else {
+          c.style.width = '';
+          c.style.height = '';
+          c.width = window.innerWidth;
+          c.height = window.innerHeight;
+          window.dispatchEvent(new Event('resize'));
+        }
+      });
+      var btn = document.getElementById('start-btn');
+      if (btn) {
+        btn.addEventListener('click', function() {
+          var sel = document.querySelector('input[name="style"]:checked');
+          if (sel && sel.value === 'realista') {
+            document.body.classList.add('style-realista');
+          } else if (sel && sel.value === 'pixelart') {
+            document.body.classList.add('style-pixelart');
+          } else {
+            document.body.classList.remove('style-pixelart', 'style-realista');
+          }
+        });
+      }
     })();
     </script>
   </body>
