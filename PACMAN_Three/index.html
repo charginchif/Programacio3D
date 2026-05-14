@@ -16,6 +16,7 @@
           attrs = attrs || {};
           attrs.antialias = !isMobile && attrs.antialias;
           attrs.powerPreference = 'high-performance';
+          attrs.xrCompatible = true;
           if (attrs.alpha === undefined) attrs.alpha = false;
         }
         var ctx = _origGetContext.call(this, type, attrs);
@@ -35,6 +36,16 @@
         }
         return ctx;
       };
+      if (typeof XRWebGLBinding !== 'undefined') {
+        try {
+          var _origCreateLayer = XRWebGLBinding.prototype.createProjectionLayer;
+          XRWebGLBinding.prototype.createProjectionLayer = function(options) {
+            options = options || {};
+            options.scaleFactor = 0.55;
+            return _origCreateLayer.call(this, options);
+          };
+        } catch(e) {}
+      }
     })();
     </script>
     <script type="module" crossorigin src="./assets/index-lSStU-Lo.js"></script>
